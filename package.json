@@ -1,0 +1,28 @@
+{
+  "name": "bounty-rune-bot",
+  "version": "1.0.0",
+  "description": "Discord bot that randomly spawns Bounty Rune messages with claimable gold rewards",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
+    "deploy": "node src/deployCommands.js"
+  },
+  "keywords": [
+    "discord",
+    "bot",
+    "bounty",
+    "rune",
+    "dota2"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.110.2",
+    "discord.js": "^14.26.5",
+    "dotenv": "^17.4.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.14"
+  }
+}
