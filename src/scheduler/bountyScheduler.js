@@ -1,6 +1,7 @@
 import { DiscordAPIError } from 'discord.js';
 import { log, error } from '../utils/logger.js';
 import {
+  clearSchedule,
   getNextSpawnAt,
   persistNextSpawnAt,
 } from '../db/queries.js';
@@ -376,4 +377,49 @@ export async function triggerManualSpawn(client, channelId) {
 
   log(`[Manual] Bounty Rune spawned in channel ${targetChannelId}`);
   return targetChannelId;
+}
+
+/**
+ * Recompute the schedule from scratch: clear the persisted row, cancel any
+ * pending timeout, compute a fresh spawn time using the current
+ * BOUNTY_AVG_PER_WEEK value, persist it, and schedule the local timer.
+ *
+ * Designed to be called from an admin command or any other runtime trigger
+ * without restarting the bot process.
+ *
+ * @param {import('discord.js').Client} client
+ * @returns {Promise<{nextDate: Date, avgPerWeek: number}>}
+ */
+export async function recomputeSchedule(client) {
+  // 1. Cancel any pending spawn timer
+  if (timeoutHandle) {
+    clearTimeout(timeoutHandle);
+    timeoutHandle = null;
+    log('[Recompute] Cancelled existing spawn timer.');
+  }
+
+  // 2. Clear the persisted schedule row
+  await clearSchedule();
+  log('[Recompute] Cleared persisted schedule.');
+
+  // 3. Compute a fresh spawn time using the *current* env value
+  const currentAvg = parseFloat(process.env.BOUNTY_AVG_PER_WEEK) || 1;
+  const meanInterval = (7 * 24 * 60 * 60 * 1000) / currentAvg;
+  const delay = -Math.log(1 - Math.random()) * meanInterval;
+  const nextDate = new Date(Date.now() + delay);
+
+  log(
+    `[Recompute] New spawn at ${nextDate.toLocaleString()} ` +
+    `(${(delay / 3_600_000).toFixed(1)}h from now, ${currentAvg} avg/wk)`
+  );
+
+  // 4. Persist the new date
+  await persistNextSpawnAt(nextDate);
+
+  // 5. Schedule the local timeout (only if the scheduler is still running)
+  if (isRunning) {
+    scheduleTimeoutFor(client, nextDate);
+  }
+
+  return { nextDate, avgPerWeek: currentAvg };
 }

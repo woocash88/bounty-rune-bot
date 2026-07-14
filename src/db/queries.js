@@ -110,6 +110,19 @@ export async function getNextSpawnAt() {
   return data ? new Date(data.next_spawn_at) : null;
 }
 
+/**
+ * Delete the persisted schedule row (id=1) so the scheduler will
+ * compute a fresh next-spawn time on the next cycle.
+ */
+export async function clearSchedule() {
+  const { error } = await supabase
+    .from('bounty_schedule')
+    .delete()
+    .eq('id', 1);
+
+  if (error) throw error;
+}
+
 // ============================================================
 // Instance lock – bot_instance_lock table (duplicate guard)
 // ============================================================

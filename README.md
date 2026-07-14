@@ -75,7 +75,7 @@ npm install
 npm run deploy
 ```
 
-This registers all 6 slash commands to your test guild (guild-scoped for instant updates).
+This registers all 8 slash commands to your test guild (guild-scoped for instant updates).
 
 ### 6. Start the bot
 
@@ -94,6 +94,7 @@ npm run dev      # Development (with nodemon auto-restart)
 | `/reset <user>` | (Admin) Reset a specific user's Gold to 0 |
 | `/add <user> <gold>` | (Admin) Add Gold to a user |
 | `/remove <user> <gold>` | (Admin) Remove Gold from a user (won't go below 0) |
+| `/rerollschedule` | (Admin) Clear the persisted schedule and recompute the next Bounty Rune spawn time using the current `BOUNTY_AVG_PER_WEEK` value |
 
 ## Reliability
 
