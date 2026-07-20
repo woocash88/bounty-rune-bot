@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { tryDeductGold, addGold, getUserGold } from '../db/queries.js';
-import { log, error } from '../utils/logger.js';
+import { error } from '../utils/logger.js';
 
 // ---------- Module-level duel state (in-memory, resets on restart) ----------
 
@@ -65,6 +65,46 @@ const DUEL_VARIANTS = [
     `⚔️ ${challenger} szuka słabego punktu!`,
     `🛡️ ${target} zaczyna się męczyć!`,
     `🌪️ Kto wytrzyma dłużej?!`,
+  ],
+  // Variant 5 — Pojedynek na łuki
+  (challenger, target) => [
+    `🏹 ${challenger} naciąga cięciwę!`,
+    `🪃 ${target} uchyla się i szykuje do strzału!`,
+    `🏹 ${challenger} wypuszcza strzałę!`,
+    `🪃 ${target} ociera się o pocisk!`,
+    `🎯 Cel widoczny...`,
+  ],
+  // Variant 6 — Starcie żywiołów
+  (challenger, target) => [
+    `🔥 ${challenger} ciska ognistą kulę!`,
+    `❄️ ${target} mrozi ziemię pod nogami!`,
+    `🔥 ${challenger} przywołuje wicher!`,
+    `❄️ ${target} kryje się za ścianą lodu!`,
+    `🌩️ Żywioły szaleją!!!`,
+  ],
+  // Variant 7 — Walka w błocie
+  (challenger, target) => [
+    `💩 ${challenger} rzuca błotem!`,
+    `🫣 ${target} poślizguje się i ląduje w kałuży!`,
+    `💩 ${challenger} skacze w rozbryzgach błota!`,
+    `🫣 ${target} ociera błoto z twarzy!`,
+    `🤢 Ale syf!!!`,
+  ],
+  // Variant 8 — Pojedynek na słowa
+  (challenger, target) => [
+    `🎤 ${challenger} jedzie z tekstem!`,
+    `😏 ${target} odpowiada ciętą ripostą!`,
+    `🎤 ${challenger} sięga po cięższe argumenty!`,
+    `😏 ${target} kręci głową z powątpiewaniem!`,
+    `🔥  ...isczy się w powietrzu!`,
+  ],
+  // Variant 9 — Szachowa precyzja
+  (challenger, target) => [
+    `♟️ ${challenger} wykonuje ruch!`,
+    `🧠 ${target} analizuje i odpowiada!`,
+    `♟️ ${challenger} atakuje z flanki!`,
+    `🧠 ${target} traci figurę!`,
+    `⏳ Czas ucieka...`,
   ],
 ];
 
@@ -240,15 +280,7 @@ export async function executeDuelAccept(state, interaction) {
   }
 
   // -- Both staked, determine winner --
-  const roll = Math.random();
-  const rolledChallengerWin = roll < 0.5;
-  const winnerId = rolledChallengerWin ? challengerId : targetId;
-  const loserId = winnerId === challengerId ? targetId : challengerId;
-
-  log(
-    `[Duel Roll] roll=${roll.toFixed(4)} → ${rolledChallengerWin ? 'CHALLENGER' : 'TARGET'} wins ` +
-    `(challengerId=${challengerId}, targetId=${targetId}, winnerId=${winnerId})`
-  );
+  const winnerId = Math.random() < 0.5 ? challengerId : targetId;
 
   // Credit winner
   try {
