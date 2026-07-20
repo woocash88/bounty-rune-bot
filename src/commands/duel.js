@@ -23,41 +23,50 @@ function releaseDuelLock(challengerId, targetId) {
   usersInActiveDuel.delete(targetId);
 }
 
-// Pool of Polish attack phrases (picked randomly for variety)
-const ATTACK_PHRASES = {
-  challenger1: [
-    'atakuje z pałki!',
-    'wyprowadza szybki cios!',
-    'rzuca się do ataku!',
-    'zadaje potężny cios szablą!',
-    'atakuje z impetem!',
+// 5 distinct battle narration variants — one picked at random per duel
+// Each variant produces exactly 5 lines: 2 challenger, 2 target, 1 neutral suspense
+const DUEL_VARIANTS = [
+  // Variant 0 — Starcie na miecze
+  (challenger, target) => [
+    `🗡️ ${challenger} zamachuje się mieczem!`,
+    `🛡️ ${target} odparowuje i kontratakuje!`,
+    `🗡️ ${challenger} próbuje ponownie, szybciej!`,
+    `🛡️ ${target} ledwo się broni!`,
+    `😱 Cóż za starcie!!!`,
   ],
-  targetCounter: [
-    'odbija atak i kontratakuje!',
-    'robi unik i odpowiada ciosem!',
-    'blokuje i wyprowadza kontrę!',
-    'uchyla się i zadaje cios z boku!',
+  // Variant 1 — Bijatyka na pięści
+  (challenger, target) => [
+    `👊 ${challenger} rzuca się z pięściami!`,
+    `🤜 ${target} oddaje z nawiązką!`,
+    `👊 ${challenger} wyprowadza serię ciosów!`,
+    `🤜 ${target} chwieje się na nogach!`,
+    `💥 O nie!!!`,
   ],
-  challenger2: [
-    'unika i zadaje cios!',
-    'nie daje za wygraną i ponownie atakuje!',
-    'odskakuje i ciąnie z półobrotu!',
+  // Variant 2 — Pojedynek magiczny
+  (challenger, target) => [
+    `✨ ${challenger} rzuca zaklęcie!`,
+    `🔮 ${target} stawia magiczną tarczę!`,
+    `✨ ${challenger} próbuje przebić obronę!`,
+    `🔮 ${target} traci koncentrację!`,
+    `⚡ Napięcie sięga zenitu...`,
   ],
-  targetStumble: [
-    'traci równowagę...',
-    'chwieje się, ale próbuje bronić...',
-    'jest w defensywie...',
+  // Variant 3 — Napięta wymiana ciosów
+  (challenger, target) => [
+    `🗡️ ${challenger} atakuje znienacka!`,
+    `🛡️ ${target} ledwo unika!`,
+    `🗡️ ${challenger} nie odpuszcza!`,
+    `🛡️ ${target} traci grunt pod nogami!`,
+    `. . . .`,
   ],
-  challengerFinal: [
-    'zadaje decydujący cios!',
-    'wykorzystuje szansę i kończy pojedynek!',
-    'finalizuje pojedynek miażdżącym uderzeniem!',
+  // Variant 4 — Ostateczna próba
+  (challenger, target) => [
+    `⚔️ ${challenger} rusza do ataku!`,
+    `🛡️ ${target} broni się zawzięcie!`,
+    `⚔️ ${challenger} szuka słabego punktu!`,
+    `🛡️ ${target} zaczyna się męczyć!`,
+    `🌪️ Kto wytrzyma dłużej?!`,
   ],
-};
-
-function pick(arr) {
-  return arr[Math.floor(Math.random() * arr.length)];
-}
+];
 
 // ---------- Command definition ----------
 
@@ -231,8 +240,15 @@ export async function executeDuelAccept(state, interaction) {
   }
 
   // -- Both staked, determine winner --
-  const winnerId = Math.random() < 0.5 ? challengerId : targetId;
+  const roll = Math.random();
+  const rolledChallengerWin = roll < 0.5;
+  const winnerId = rolledChallengerWin ? challengerId : targetId;
   const loserId = winnerId === challengerId ? targetId : challengerId;
+
+  log(
+    `[Duel Roll] roll=${roll.toFixed(4)} → ${rolledChallengerWin ? 'CHALLENGER' : 'TARGET'} wins ` +
+    `(challengerId=${challengerId}, targetId=${targetId}, winnerId=${winnerId})`
+  );
 
   // Credit winner
   try {
@@ -256,15 +272,40 @@ export async function executeDuelAccept(state, interaction) {
     return null;
   }
 
+  // -- Fetch display names (no-ping alternatives for narration lines) --
+  let challengerName = challengerId;
+  let targetName = targetId;
+  try {
+    const challengerMember = await interaction.guild.members.fetch(challengerId);
+    challengerName = challengerMember.displayName;
+  } catch {
+    try {
+      const challengerUser = await interaction.client.users.fetch(challengerId);
+      challengerName = challengerUser.username;
+    } catch {
+      // absolute fallback — raw ID string, no ping
+    }
+  }
+  try {
+    const targetMember = await interaction.guild.members.fetch(targetId);
+    targetName = targetMember.displayName;
+  } catch {
+    try {
+      const targetUser = await interaction.client.users.fetch(targetId);
+      targetName = targetUser.username;
+    } catch {
+      // absolute fallback — raw ID string, no ping
+    }
+  }
+
   // -- Battle narration --
+  const variantIndex = Math.floor(Math.random() * DUEL_VARIANTS.length);
+  const variantLines = DUEL_VARIANTS[variantIndex](challengerName, targetName);
+
   const lines = [
     `⚔️ Pojedynek: <@${challengerId}> vs <@${targetId}>`,
     '',
-    `🗡️ <@${challengerId}> ${pick(ATTACK_PHRASES.challenger1)}`,
-    `🛡️ <@${targetId}> ${pick(ATTACK_PHRASES.targetCounter)}`,
-    `🗡️ <@${challengerId}> ${pick(ATTACK_PHRASES.challenger2)}`,
-    `🛡️ <@${targetId}> ${pick(ATTACK_PHRASES.targetStumble)}`,
-    `🗡️ <@${challengerId}> ${pick(ATTACK_PHRASES.challengerFinal)}`,
+    ...variantLines,
     '',
     `🏆 <@${winnerId}> wygrywa pojedynek i zgarnia **${pot} Golda**!`,
   ].join('\n');
