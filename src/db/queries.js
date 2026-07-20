@@ -39,6 +39,24 @@ export async function addGold(userId, amount) {
 }
 
 /**
+ * Atomically deduct gold from a user if they have sufficient balance.
+ * Uses the Postgres try_deduct_gold function with row-level locking.
+ * Returns true if deducted, false if insufficient funds or user doesn't exist.
+ * @param {string} userId
+ * @param {number} amount
+ * @returns {Promise<boolean>}
+ */
+export async function tryDeductGold(userId, amount) {
+  const { data, error } = await supabase.rpc('try_deduct_gold', {
+    p_user_id: userId,
+    p_amount: amount,
+  });
+
+  if (error) throw error;
+  return data;
+}
+
+/**
  * Reset a single user's gold to 0.
  * @param {string} userId
  */

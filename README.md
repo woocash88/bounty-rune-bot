@@ -47,6 +47,7 @@ cp .env.example .env
 | `BOUNTY_CLAIM_TIMEOUT_MS` | Ephemeral confirmation auto-delete delay in ms (default: 30000) |
 | `ADMIN_LOG_CHANNEL_ID` | Optional: channel ID for scheduler error notifications |
 | `MAX_GOLD_ADJUSTMENT` | Optional: max gold per /add or /remove command (default: 100000) |
+| `BOUNTY_DUEL_STAKE` | Optional: gold stake per player in /duel (default: 50) |
 
 ### 3. Database
 
@@ -61,6 +62,7 @@ Run the SQL in `db/schema.sql` in your Supabase SQL editor. This creates all req
 | Function | Purpose |
 |---|---|
 | `increment_gold` | Atomic gold increment/decrement with 0-floor clamping |
+| `try_deduct_gold` | Atomic gold deduction with row-level locking (returns false if insufficient) |
 | `try_acquire_lock` | Atomic instance lock acquire with stale-threshold check |
 
 ### 4. Install dependencies
@@ -75,7 +77,7 @@ npm install
 npm run deploy
 ```
 
-This registers all 8 slash commands to your test guild (guild-scoped for instant updates).
+This registers all 10 slash commands to your test guild (guild-scoped for instant updates).
 
 ### 6. Start the bot
 
@@ -95,6 +97,8 @@ npm run dev      # Development (with nodemon auto-restart)
 | `/add <user> <gold>` | (Admin) Add Gold to a user |
 | `/remove <user> <gold>` | (Admin) Remove Gold from a user (won't go below 0) |
 | `/rerollschedule` | (Admin) Clear the persisted schedule and recompute the next Bounty Rune spawn time using the current `BOUNTY_AVG_PER_WEEK` value |
+| `/give <user> <amount>` | Przekaż część swojego Golda innemu użytkownikowi |
+| `/duel <user>` | Wyzwij innego użytkownika na pojedynek o Gold (stawka: BOUNTY_DUEL_STAKE) |
 
 ## Reliability
 

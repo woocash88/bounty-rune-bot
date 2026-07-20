@@ -44,6 +44,35 @@ CREATE TABLE IF NOT EXISTS bounty_schedule (
 );
 
 -- ============================================================
+-- Function: atomic gold deduction (race-safe via row lock)
+-- Returns TRUE if the user had sufficient funds and deducted,
+-- FALSE if they didn't exist or had insufficient gold.
+-- Uses FOR UPDATE row locking so concurrent deductions can't
+-- both succeed and push the balance negative.
+-- ============================================================
+CREATE OR REPLACE FUNCTION try_deduct_gold(p_user_id TEXT, p_amount INTEGER)
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_current_gold INTEGER;
+BEGIN
+  SELECT gold INTO v_current_gold FROM bounty_users WHERE user_id = p_user_id FOR UPDATE;
+
+  IF v_current_gold IS NULL OR v_current_gold < p_amount THEN
+    RETURN FALSE;
+  END IF;
+
+  UPDATE bounty_users
+  SET gold = gold - p_amount, updated_at = NOW()
+  WHERE user_id = p_user_id;
+
+  RETURN TRUE;
+END;
+$$;
+
+-- ============================================================
 -- Table: bot instance lock (prevents duplicate schedulers)
 -- Singleton row (id = 1). Used with the try_acquire_lock function
 -- to ensure only one bot instance runs the scheduler at a time.

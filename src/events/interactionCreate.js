@@ -1,6 +1,7 @@
 import { Events, ActionRowBuilder, ButtonBuilder } from 'discord.js';
 import { log, error } from '../utils/logger.js';
 import { addGold } from '../db/queries.js';
+import { duelState, usersInActiveDuel, executeDuelAccept } from '../commands/duel.js';
 
 const claimTimeout = parseInt(process.env.BOUNTY_CLAIM_TIMEOUT_MS, 10) || 30000;
 const goldReward = parseInt(process.env.BOUNTY_GOLD_REWARD, 10) || 50;
@@ -9,6 +10,88 @@ const goldReward = parseInt(process.env.BOUNTY_GOLD_REWARD, 10) || 50;
 // Prevents the same bounty message from paying out twice when
 // two button interactions arrive near-simultaneously.
 const processingMessageIds = new Set();
+
+// ---------- Duel button handler ----------
+
+async function handleDuelButton(interaction) {
+  const customId = interaction.customId;
+  const isAccept = customId.startsWith('duel_accept_');
+  const duelId = customId.replace(/^duel_(accept|decline)_/, '');
+
+  const state = duelState.get(duelId);
+
+  if (!state || state.resolved) {
+    await interaction.reply({
+      content: 'Ten pojedynek już się zakończył lub wygasł.',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  // Only the challenged user can act on these buttons
+  if (interaction.user.id !== state.targetId) {
+    await interaction.reply({
+      content: 'To nie twój pojedynek!',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  state.resolved = true;
+  clearTimeout(state.timeout);
+  duelState.delete(duelId);
+
+  if (!isAccept) {
+    // --- Decline ---
+    releaseDuelLock(state);
+    try {
+      await state.message.edit({
+        content: `<@${state.targetId}> odrzucił pojedynek z <@${state.challengerId}>.`,
+        components: [],
+      });
+    } catch (e) {
+      error('Error editing declined duel message:', e.message);
+    }
+    await interaction.reply({
+      content: 'Odrzuciłeś pojedynek.',
+      ephemeral: true,
+    });
+    return;
+  }
+
+  // --- Accept ---
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    const winnerId = await executeDuelAccept(state, interaction);
+
+    if (winnerId) {
+      await interaction.editReply({
+        content: `✅ Przyjąłeś pojedynek i **${winnerId === state.targetId ? 'wygrałeś' : 'przegrałeś'}**!`,
+      });
+    } else {
+      await interaction.editReply({
+        content: 'Pojedynek został odwołany — zabrakło komuś siana.',
+      });
+    }
+  } catch (err) {
+    error('Error executing duel accept:', err.message);
+    try {
+      await interaction.editReply({
+        content: `❌ Wystąpił błąd podczas pojedynku: ${err.message}`,
+      });
+    } catch {
+      // Best-effort
+    }
+  } finally {
+    releaseDuelLock(state);
+  }
+}
+
+function releaseDuelLock(state) {
+  usersInActiveDuel.delete(state.challengerId);
+  usersInActiveDuel.delete(state.targetId);
+}
 
 export default {
   name: Events.InteractionCreate,
@@ -34,6 +117,12 @@ export default {
 
     // --- Button interactions ---
     if (!interaction.isButton()) return;
+
+    // --- Duel buttons ---
+    if (interaction.customId.startsWith('duel_accept_') || interaction.customId.startsWith('duel_decline_')) {
+      await handleDuelButton(interaction);
+      return;
+    }
 
     if (interaction.customId !== 'bounty_claim') return;
 
