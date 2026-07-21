@@ -23,88 +23,128 @@ function releaseDuelLock(challengerId, targetId) {
   usersInActiveDuel.delete(targetId);
 }
 
-// 5 distinct battle narration variants — one picked at random per duel
-// Each variant produces exactly 5 lines: 2 challenger, 2 target, 1 neutral suspense
+// Battle narration variants
+// Each variant produces exactly 5 lines
 const DUEL_VARIANTS = [
   // Variant 0 — Starcie na miecze
   (challenger, target) => [
-    `🗡️ ${challenger} zamachuje się mieczem!`,
+    `🗡️ ${challenger} od razu wyciąga Diffusal Blade i atakuje frontalnie!`,
     `🛡️ ${target} odparowuje i kontratakuje!`,
-    `🗡️ ${challenger} próbuje ponownie, szybciej!`,
-    `🛡️ ${target} ledwo się broni!`,
+    `🗡️ ${challenger} używa Manta Style i atakuje kolejny raz!`,
+    `🛡️ ${target} aktywuje Shiva's Guard ale czy to wystarczy?!`,
     `😱 Cóż za starcie!!!`,
   ],
-  // Variant 1 — Bijatyka na pięści
+  // Variant 1 — Złoty Cios
   (challenger, target) => [
-    `👊 ${challenger} rzuca się z pięściami!`,
-    `🤜 ${target} oddaje z nawiązką!`,
-    `👊 ${challenger} wyprowadza serię ciosów!`,
-    `🤜 ${target} chwieje się na nogach!`,
-    `💥 O nie!!!`,
+    `🥊 ${challenger} rusza z ostateczną szarżą ostatkiem sił!`,
+    `🛡️ ${target} opuszcza gardę i stawia wszystko na jeden, decydujący kontratak!`,
+    `💥 Obaj wyprowadzają potężny sierpowy w tym samym ułamku sekundy!`,
+    `😵 Nogi z waty, obaj lecą na dechy w zwolnionym tempie...`,
+    `🔔 Sędzia liczy do dziesięciu... Kto podniesie się z maty jako pierwszy?!`,
   ],
   // Variant 2 — Pojedynek magiczny
   (challenger, target) => [
-    `✨ ${challenger} rzuca zaklęcie!`,
-    `🔮 ${target} stawia magiczną tarczę!`,
-    `✨ ${challenger} próbuje przebić obronę!`,
-    `🔮 ${target} traci koncentrację!`,
-    `⚡ Napięcie sięga zenitu...`,
+    `✨ ${challenger} rzuca Frostbite i usztywnia przeciwnika!`,
+    `🔮 ${target} odpala BKB i kontruje!`,
+    `✨ ${challenger} robi szybki unik Force Staffem i szykuje Laguna Blade!`,
+    `🔮 ${target} BKB właśnie się skończyło, Finger of Death już załadowany!`,
+    `⚡ Kto jest szybszy?! Napięcie sięga zenitu...`,
   ],
-  // Variant 3 — Napięta wymiana ciosów
+  // Variant 3 — Starcie Tytanów (i ich kręgosłupów)
   (challenger, target) => [
-    `🗡️ ${challenger} atakuje znienacka!`,
-    `🛡️ ${target} ledwo unika!`,
-    `🗡️ ${challenger} nie odpuszcza!`,
-    `🛡️ ${target} traci grunt pod nogami!`,
-    `. . . .`,
+    `💀 ${challenger} nakłada 200kg na martwy ciąg i podnosi to... samym wygiętym kręgosłupem!`,
+    `🚑 ${target} kontruje, robiąc bicepsy hantlami, przy których buja się jak paralityk!`,
+    `🤯 ${challenger} próbuje zrobić najszerszy grzbietu, ale zamiast tego pękają mu szwy w koszulce!`,
+    `🤢 ${target} robi tak czerwoną twarz przy wyciskaniu, że mylisz go z gaśnicą!`,
+    `💥 Kręgi strzelają, lustra pękają, a fizjoterapeuta już zaciera ręce!!!`,
   ],
-  // Variant 4 — Ostateczna próba
+  // Variant 4 — Solówka na Midzie (Syndrom Łysego)
   (challenger, target) => [
-    `⚔️ ${challenger} rusza do ataku!`,
-    `🛡️ ${target} broni się zawzięcie!`,
-    `⚔️ ${challenger} szuka słabego punktu!`,
-    `🛡️ ${target} zaczyna się męczyć!`,
-    `🌪️ Kto wytrzyma dłużej?!`,
+    `⚔️ ${challenger} wbija na mida z agresywnym harassem i próbuje zgarnąć first blooda!`,
+    `🕷️ ${target} nagle odpala full lock-in i blokuje creepy dupką idealnie jak Łysy swoją legendarną Broodką!`,
+    `🤯 ${challenger} patrzy na te perfekcyjne last hity i od razu pisze na all-czacie: "Ile dałeś za tego boosta?"`,
+    `🤬 ${target} odpisuje w panice: "TO JA GRAM MORDO, ZOBACZYSZ GG W 20 MINUT, MAKRO OPANOWANE!"`,
+    `❓ Zmarnował cenne sekundy na pisanie pod ostrzałem wieży... Czy zdoła uciec z resztką HP czy odda głupiego killa?!`,
   ],
   // Variant 5 — Pojedynek na łuki
   (challenger, target) => [
-    `🏹 ${challenger} naciąga cięciwę!`,
-    `🪃 ${target} uchyla się i szykuje do strzału!`,
-    `🏹 ${challenger} wypuszcza strzałę!`,
-    `🪃 ${target} ociera się o pocisk!`,
-    `🎯 Cel widoczny...`,
+    `🏹 ${challenger} strzela z dystansu, strzała przecina wszystko jak żyletka!`,
+    `🔫 ${target} uchyla się padając na ziemie i szykuje do kontry!`,
+    `🏹 ${challenger} sięga po nową strzałę, chowając się za drzewem!`,
+    `🔫 ${target} Cel widoczny, strzela!! Pif Paf xDDDD `,
+    `🎯 Kurz się unosi... nie widać zwycięzcy... o jest...!!..`,
   ],
-  // Variant 6 — Starcie żywiołów
+  // Variant 6 — Starcie o ostatniego harnasia
   (challenger, target) => [
-    `🔥 ${challenger} ciska ognistą kulę!`,
-    `❄️ ${target} mrozi ziemię pod nogami!`,
-    `🔥 ${challenger} przywołuje wicher!`,
-    `❄️ ${target} kryje się za ścianą lodu!`,
-    `🌩️ Żywioły szaleją!!!`,
+    `🩴 ${challenger} rzuca podkręconym klapkiem Kubota!`,
+    `🛡️ ${target} taktyczna zasłona reklamówką z Biedry!`,
+    `💨 ${challenger} bierze energetycznego bucha z e-fajki`,
+    `🍌 ${target} wyciąga Harnasia z reklamówki i zeruje go w 2sekundy`,
+    `🤦 Nie wiem kto to pisał, ale ktoś musi tutaj wygrać, więc...`,
   ],
-  // Variant 7 — Walka w błocie
+  // Variant 7 — Błotna Masakra
   (challenger, target) => [
-    `💩 ${challenger} rzuca błotem!`,
-    `🫣 ${target} poślizguje się i ląduje w kałuży!`,
-    `💩 ${challenger} skacze w rozbryzgach błota!`,
-    `🫣 ${target} ociera błoto z twarzy!`,
-    `🤢 Ale syf!!!`,
+    `💩 ${challenger} ciska potężną bryłą błota prosto w twarz przeciwnika!`,
+    `🍌 ${target} próbuje zrobić unik, ale ślizga się i ląduje na dupie!`,
+    `💦 ${challenger} wykonuje efektowny skok "na bombę" w sam środek kałuży!`,
+    `🐷 ${target} jest już tak oblepiony błotem, że przypomina smutnego prosiaczka🐖!`,
+    `💥 Obaj są tak brudni, że sędzia nie wie który jest który i wybiera losowego zwycięzce!!!`,
   ],
-  // Variant 8 — Pojedynek na słowa
+  // Variant 8 — PGL Rap Major
   (challenger, target) => [
-    `🎤 ${challenger} jedzie z tekstem!`,
-    `😏 ${target} odpowiada ciętą ripostą!`,
-    `🎤 ${challenger} sięga po cięższe argumenty!`,
-    `😏 ${target} kręci głową z powątpiewaniem!`,
-    `🔥  ...isczy się w powietrzu!`,
+    `💸 ${challenger} nawija szybciej niż Joxxim podmienia itemy w oknie wymiany!`,
+    `🔇 ${target} paruje dissy, wrzucając rywala na ignore listę!`,
+    `🙃 ${challenger} pluje rymami ostrymi, aż przeciwnika pośladki pieką `,
+    `🎒 ${target} dusi się ze śmiechu, widząc przeciwnika ekwipunek pełen commonów!`,
+    `🎧 Mikrofony spalone, a lobby zgłoszone za toksyczność!!!`,
   ],
-  // Variant 9 — Szachowa precyzja
+  // Variant 9 — Starcie na Rynku Społeczności
   (challenger, target) => [
-    `♟️ ${challenger} wykonuje ruch!`,
-    `🧠 ${target} analizuje i odpowiada!`,
-    `♟️ ${challenger} atakuje z flanki!`,
-    `🧠 ${target} traci figurę!`,
-    `⏳ Czas ucieka...`,
+    `🤑 ${challenger} uderza z grubej rury: oferuje 3 commony za Arcanę!`,
+    `🛡️ ${target} paruje cios szybkim "lowball = block -rep"!`,
+    `🤡 ${challenger} odpala taktykę na Joxxiego i podmienia itemy w ostatniej sekundzie!`,
+    `📱 ${target} w panice szuka telefonu ze Steam Guardem, ale upuszcza go pod biurko!`,
+    `📉 Ekwipunek wyczyszczony do zera.… ale czyj?!`,
+  ],
+  // Variant 10 — Wściekły Roshan (Gank na leżu)
+  (challenger, target) => [
+    `🧀 ${challenger} wpada do groty Roshana, próbując ukraść Aegisa w ostatniej sekundzie!`,
+    `💥 ${target} odpala Blink Daggera i rzuca Stuna prosto w rywala!`,
+    `🧟 Roshan wścieka się na obydwu i zaczyna walić obszarowo po łbach!`,
+    `🎒 ${challenger} i ${target} biją się resztkami sił o leżącego na ziemi Aegisa!`,
+    `❓ Dym opada, Roshan spierdolił... Ale kto w końcu podniósł tego Aegisa?!`,
+  ],
+  // Variant 11 — Awaria na Lan-Party (Gimbaza 2012)
+  (challenger, target) => [
+    `🍕 ${challenger} ciska w rywala kawałkiem zimnej hawajskiej i potyka się o kabel od kabla LAN!`,
+    `🔌 ${target} odpiera atak, przypadkowo wyciągając wtyczkę od monitora przeciwnika!`,
+    `🤬 ${challenger} gra na ślepo, waląc pięścią w klawiaturę i drąc się na całe osiedle!`,
+    `🥤 ${target} ze stresu wylewa Colę na listwę zasilającą – sypią się iskry!`,
+    `⚡ Bezpieczniki wywaliło w całym bloku! Kto w ciemności wymierzył ostatni cios?!`,
+  ],
+  // Variant 12 — Walka o Ostatniego Kebabka
+  (challenger, target) => [
+    `🥙 ${challenger} robi zamach na ostatniego kebaba z sosem mieszanym!`,
+    `🌶️ ${target} kontruje, waląc mu ostry sos na spód bułki!`,
+    `🙈 ${challenger} na ślepo wymachuje widelczykiem, siejąc spustoszenie w lokalu!`,
+    `🍟 ${target} poślizgnął się na frytce, a kebab wypada mu z ręki!`,
+    `😱 Kebab leci w powietrzu w zwolnionym tempie... W czyich ustach wyląduje?!`,
+  ],
+  // Variant 13 — Wszechmocny Techies (Saper na Midzie)
+  (challenger, target) => [
+    `💣 ${challenger} wbiega na rywala z pełną prędkością, szykując Suicide Squad!`,
+    `⛏️ ${target} używa Eul'a i podrzuca agresora w powietrze, zyskując cenne sekundy!`,
+    `💥 ${challenger} spada z nieba prosto w gniazdo zielonych min pod wieżą!`,
+    `😱 ${target} zdaje sobie sprawę, że sam stoi na środku tego pola minowego!`,
+    `🧨 ŁOMOT na pół mapy! Czy ${target} jakimś cudem przeżył?!`,
+  ],
+  // Variant 14 — Błędy w Matrixie (Lag / high ping battle)
+  (challenger, target) => [
+    `🌐 ${challenger} próbuje wyprowadzić cios, ale dostaje skoku pingu do 999ms!`,
+    `🛜 ${target} próbuje go zaatakować, ale skacze się po całej mapie z powodu utraty pakietów!`,
+    `📉 ${challenger} zamraża się w absolutnie absurdalnej pozie na środku rzeki!`,
+    `🔄 ${target} odpala Earth Splitter, który wchodzi z 5-sekundowym opóźnieniem!`,
+    `⌛ Łącze wraca do normy, animacje odpalają się naraz... Kto w ogóle przeżył ten lag?!`,
   ],
 ];
 
