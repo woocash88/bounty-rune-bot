@@ -99,6 +99,7 @@ npm run dev      # Development (with nodemon auto-restart)
 | `/rerollschedule` | (Admin) Clear the persisted schedule and recompute the next Bounty Rune spawn time using the current `BOUNTY_AVG_PER_WEEK` value |
 | `/give <user> <amount>` | Przekaż część swojego Golda innemu użytkownikowi |
 | `/duel <user>` | Wyzwij innego użytkownika na pojedynek o Gold (stawka: BOUNTY_DUEL_STAKE) |
+| `/next` | Sprawdź kiedy pojawi się następna Bounty Runa (odczyt tylko, brak efektów ubocznych) |
 
 ## Reliability
 
