@@ -4,16 +4,25 @@ import { getUserGold } from '../db/queries.js';
 export default {
   data: new SlashCommandBuilder()
     .setName('bounty')
-    .setDescription('Sprawdź swoje saldo Gold'),
+    .setDescription('Sprawdź swoje saldo Gold')
+    .addUserOption((option) =>
+      option
+        .setName('user')
+        .setDescription('Sprawdź Gold innego użytkownika (opcjonalnie)')
+        .setRequired(false),
+    ),
 
   async execute(interaction) {
     await interaction.deferReply({ ephemeral: true });
 
-    const userId = interaction.user.id;
-    const gold = await getUserGold(userId);
+    const targetUser = interaction.options.getUser('user') ?? interaction.user;
+    const gold = await getUserGold(targetUser.id);
 
-    await interaction.editReply({
-      content: `💰 Twoje saldo Gold: **${gold}**`,
-    });
+    const content =
+      targetUser.id === interaction.user.id
+        ? `💰 Twoje saldo Gold: **${gold}**`
+        : `💰 <@${targetUser.id}> ma Gold: **${gold}**`;
+
+    await interaction.editReply({ content });
   },
 };
