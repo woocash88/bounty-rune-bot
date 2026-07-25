@@ -266,7 +266,7 @@ export default {
 
       try {
         await message.edit({
-          content: `⌛ <@${target.id}> nie odpowiedział na pojedynek w czasie. Wyzwanie wygasło.`,
+          content: `⌛ <@${challenger.id}> rzucił wyzwanie <@${target.id}>, lecz ten nie podjął rękawicy.`,
           components: [],
         });
       } catch (e) {
