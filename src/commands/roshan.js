@@ -41,25 +41,44 @@ let lobbyCounter = 0;
 
 const ROSHAN_VARIANTS = [
   (names) => [
-    `🧟 ${names} wchodzą do groty Roshana, a ten otwiera jedno oko...`,
-    `💥 Roshan uderza Slamem, ziemia drży!`,
-    `🗡️ Drużyna kontruje wszystkimi czarami i itemami, jakie mają!`,
-    `🩸 Roshan ryczy i wchodzi w fazę wściekłości...`,
+    `🧟 ${names} wchodzą do groty Roshana, a ten otwiera jedno oko i uderza Slamem!`,
+    `🗡️ Drużyna kontruje wszystkimi czarami i itemami, jakie mają, a Roshan ryczy w fazie wściekłości...`,
     `🥁 Ostatnia wymiana ciosów... kto padnie?!`,
   ],
   (names) => [
-    `🔔 ${names} budzą Roshana kopniakiem w tyłek!`,
-    `😡 Roshan nie lubi pobudki i zaczyna młócić łapami na oślep!`,
-    `🛡️ Tank łapie aggro, reszta sypie DPS-em z tyłu!`,
-    `💀 Ktoś zapomniał o BKB i właśnie leci w powietrze...`,
+    `🔔 ${names} budzą Roshana kopniakiem w tyłek, a ten młóci łapami na oślep!`,
+    `💀 Tank łapie aggro, ale ktoś zapomniał o BKB i właśnie leci w powietrze...`,
     `🎲 Hp Roshana spada do resztek... a drużyna też ledwo stoi!`,
   ],
   (names) => [
     `🧀 ${names} podkradają się pod leże, licząc na Aegisa i ser!`,
-    `🐻 Roshan zrywa się z legowiska i rzuca w nich głazem!`,
-    `⚡ Drużyna odpala wszystkie ulty naraz!`,
-    `🤦 Połowa ultów trafia w ścianę, druga połowa w sojuszników...`,
+    `⚡ Roshan rzuca w nich głazem, drużyna odpala wszystkie ulty naraz, a połowa trafia w ścianę...`,
     `🌫️ Dym opada, a w grocie słychać tylko ciężki oddech...`,
+  ],
+  (names) => [
+    `🪓 ${names} wpadają do jaskini z krzykiem "ZA AEGISA!" i od razu dostają Slamem w twarz!`,
+    `🍞 Support rzuca w Roshana bułką z Biedry, dla którego to najwyraźniej śmiertelna obraza...`,
+    `😱 Roshan ryczy tak, że na mapie gasną światła... kto się podniesie?!`,
+  ],
+  (names) => [
+    `📢 ${names} wbijają na Roshana, bo "tylko 10 minut do końca gry, zdążymy!".`,
+    `🤦 Carry jest na farmie, support na wardach, a Roshan już bije po łbach tych, którzy dotarli...`,
+    `⏳ W oddali słychać jeszcze krzyk "ZARAZ BĘDĘ!"... ale czy zdążą?!`,
+  ],
+  (names) => [
+    `🧙 ${names} odpalają Black King Bar i ruszają na Roshana jak na rodzinny obiad!`,
+    `🥩 Roshan kontruje Roar'em i zamienia kilku z nich w kotlety schabowe!`,
+    `🔥 Pozostali walczą dalej na kolanach... komu zostanie ostatni cios?!`,
+  ],
+  (names) => [
+    `📱 ${names} ustawiają drużynę na Discordzie, ale pół składu gada o czymś zupełnie innym...`,
+    `😴 Roshan ziewa, drapie się po brzuchu i dopiero potem zaczyna walić ogonem!`,
+    `🎯 Ktoś krzyczy "FOKUS NA ROSHANA!", a nikt nie wie, kto jest tank... kto przeżyje?!`,
+  ],
+  (names) => [
+    `🚪 ${names} wchodzą do jaskini cichutko jak ninja... po czym ktoś potyka się o własny Blink Dagger!`,
+    `🪨 Roshan budzi się wściekły, rzuca w nich skałą i traci przy tym dwa zęby!`,
+    `🦷 Jeden ząb leci w górę w zwolnionym tempie... kto go złapie, ten pewnie wygra!`,
   ],
 ];
 
@@ -75,6 +94,11 @@ function buildRoshanAttachment() {
   }
 }
 
+
+/** Minimum balance to join/fight: an equal share of the penalty for the smallest party. */
+function requiredGold() {
+  return Math.ceil(getSetting('roshan_gold') / MIN_PLAYERS);
+}
 
 function chanceFor(n) {
   const key = WIN_CHANCE_KEY[n];
@@ -146,11 +170,11 @@ function buildLobbyView(lobby) {
       new ButtonBuilder()
         .setCustomId(`roshan_start_${lobby.id}`)
         .setLabel(`Start (${lobby.ready.size}/${n})`)
-        .setStyle(ButtonStyle.Primary)
+        .setStyle(ButtonStyle.Danger)
     );
   }
 
-  return { embeds: [embed], components: [new ActionRowBuilder().addComponents(buttons)] };
+  return { content: '', embeds: [embed], components: [new ActionRowBuilder().addComponents(buttons)] };
 }
 
 // ---------- Command ----------
@@ -245,6 +269,18 @@ export async function handleRoshanButton(interaction) {
       await interaction.reply({ content: 'Drużyna jest pełna.', ephemeral: true });
       return;
     }
+    // Must be able to cover an equal share of the penalty, otherwise the
+    // fight would be risk-free for them.
+    const required = requiredGold();
+    const balance = await getUserGold(userId);
+    if (balance < required) {
+      await interaction.reply({
+        content: `Do walki z Roshanem potrzebujesz minimum **${required} Golda** (masz ${balance}). Inaczej nic byś nie stracił na porażce!`,
+        ephemeral: true,
+      });
+      return;
+    }
+
     const wait = (rejoinAt.get(userId) ?? 0) - Date.now();
     if (wait > 0) {
       await interaction.reply({
@@ -285,7 +321,31 @@ export async function handleRoshanButton(interaction) {
   const shouldStart = n === MAX_PLAYERS || everyoneReady;
 
   if (shouldStart) {
+    // Lock first (sync) so a second near-simultaneous click can't start it twice.
     lobby.fighting = true;
+
+    // Balances may have dropped since joining (duel, /give, ...). Re-check right
+    // before the fight so nobody risks less than their share.
+    const required = requiredGold();
+    const broke = [];
+    for (const id of lobby.players) {
+      if ((await getUserGold(id)) < required) broke.push(id);
+    }
+    if (broke.length > 0) {
+      lobby.players = lobby.players.filter((p) => !broke.includes(p));
+      for (const id of broke) userLobby.delete(id);
+      lobby.ready.clear();
+      lobby.fighting = false;
+      await interaction.update({
+        ...buildLobbyView(lobby),
+        content:
+          `⚠️ Z drużyny wypadli (mniej niż **${required} Golda**): ${broke.map((id) => `<@${id}>`).join(' ')}. ` +
+          `Walka nie wystartowała.`,
+        allowedMentions: { parse: [] },
+      });
+      return;
+    }
+
     clearTimeout(lobby.timeout);
     await interaction.update({ components: [] });
     try {
@@ -361,7 +421,7 @@ async function runFight(lobby) {
   const variant = ROSHAN_VARIANTS[Math.floor(Math.random() * ROSHAN_VARIANTS.length)];
   const story = variant(namesText);
 
-  const header = `🧟 Wyprawa na Roshana: ${players.map((id) => `<@${id}>`).join(' ')}\n`;
+  const header = `O bogowie walka! ⚔️\n${players.map((id) => `<@${id}>`).join(' ')}\n`;
   const resultLines = win
     ? [
         `🏆 **Roshan pokonany!**`,
