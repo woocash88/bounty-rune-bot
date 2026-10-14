@@ -95,9 +95,9 @@ function buildRoshanAttachment() {
 }
 
 
-/** Minimum balance to join/fight: an equal share of the penalty for the smallest party. */
-function requiredGold() {
-  return Math.ceil(getSetting('roshan_gold') / MIN_PLAYERS);
+/** Minimum balance to fight: an equal share of the penalty for a party of this size. */
+function requiredGold(partySize) {
+  return Math.ceil(getSetting('roshan_gold') / Math.max(partySize, MIN_PLAYERS));
 }
 
 function chanceFor(n) {
@@ -271,11 +271,13 @@ export async function handleRoshanButton(interaction) {
     }
     // Must be able to cover an equal share of the penalty, otherwise the
     // fight would be risk-free for them.
-    const required = requiredGold();
+    // Party size isn't final yet, so use the size it would have with this player
+    // (at least 3). The binding check happens right before the fight.
+    const required = requiredGold(lobby.players.length + 1);
     const balance = await getUserGold(userId);
     if (balance < required) {
       await interaction.reply({
-        content: `Do walki z Roshanem potrzebujesz minimum **${required} Golda** (masz ${balance}). Inaczej nic byś nie stracił na porażce!`,
+        content: `Do walki z Roshanem potrzebujesz minimum **${required} Golda** (masz ${balance}) — tyle wynosi Twój udział w karze. Im większa drużyna, tym niższy próg.`,
         ephemeral: true,
       });
       return;
@@ -326,7 +328,7 @@ export async function handleRoshanButton(interaction) {
 
     // Balances may have dropped since joining (duel, /give, ...). Re-check right
     // before the fight so nobody risks less than their share.
-    const required = requiredGold();
+    const required = requiredGold(lobby.players.length);
     const broke = [];
     for (const id of lobby.players) {
       if ((await getUserGold(id)) < required) broke.push(id);
