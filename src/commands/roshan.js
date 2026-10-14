@@ -4,7 +4,10 @@ import {
   ButtonBuilder,
   ButtonStyle,
   EmbedBuilder,
+  AttachmentBuilder,
 } from 'discord.js';
+import { join } from 'path';
+import { readFileSync } from 'fs';
 import { addGold, getUserGold, tryDeductGold, incrementStat } from '../db/queries.js';
 import { error } from '../utils/logger.js';
 import { getSetting } from '../utils/settings.js';
@@ -62,6 +65,17 @@ const ROSHAN_VARIANTS = [
 
 // ---------- Helpers ----------
 
+/** roshan.png from the assets folder, or null if missing (embed works without it). */
+function buildRoshanAttachment() {
+  try {
+    const buffer = readFileSync(join(process.cwd(), 'assets', 'roshan.png'));
+    return new AttachmentBuilder(buffer, { name: 'roshan.png' });
+  } catch {
+    return null;
+  }
+}
+
+
 function chanceFor(n) {
   const key = WIN_CHANCE_KEY[n];
   return key ? getSetting(key) / 100 : 0;
@@ -94,22 +108,19 @@ function buildLobbyView(lobby) {
     ? lobby.players.map((id, i) => `${i + 1}. <@${id}>${lobby.ready.has(id) ? ' ✅' : ''}`).join('\n')
     : '*Nikt jeszcze nie dołączył...*';
 
-  const chanceLine = [3, 4, 5]
-    .map((k) => `${k} graczy: **${Math.round(chanceFor(k) * 100)}%**`)
-    .join(' • ');
+  const gold = getSetting('roshan_gold');
+  const expiresUnix = Math.floor(lobby.expiresAt / 1000);
 
   const embed = new EmbedBuilder()
     .setColor(0xb71c1c)
-    .setTitle('🧟 Roshan się pojawił!')
+    .setTitle('👹 Roshan się pojawił!')
     .setDescription(
-      `Zbierz drużynę (min. ${MIN_PLAYERS}, max ${MAX_PLAYERS}) i pokonaj Roshana!\n` +
-        `Nagroda: **${getSetting('roshan_gold')} Golda** (dzielone po równo). ` +
-        `Porażka kosztuje drużynę **${getSetting('roshan_gold')} Golda** (też po równo).`
+      `Zbierz drużynę min. ${MIN_PLAYERS} osób aby stawić czoło Roshanowi!\n` +
+        `Nagroda dla drużyny: **${gold}g** (przegrana zabiera **${gold}g** drużynie).\n` +
+        `Roshan ucieknie <t:${expiresUnix}:R>`
     )
-    .addFields(
-      { name: `Drużyna ${n}/${MAX_PLAYERS}`, value: `${filled}\n${list}` },
-      { name: 'Szanse na wygraną', value: chanceLine }
-    );
+    .setThumbnail('attachment://roshan.png')
+    .addFields({ name: `Drużyna ${n}/${MAX_PLAYERS}`, value: `${filled}\n${list}` });
 
   if (n >= MIN_PLAYERS && n < MAX_PLAYERS) {
     embed.addFields({
@@ -158,6 +169,7 @@ export default {
       return;
     }
 
+    const timeoutMs = getSetting('roshan_lobby_timeout') * 60_000;
     const id = `${Date.now().toString(36)}_${++lobbyCounter}`;
     const lobby = {
       id,
@@ -167,12 +179,17 @@ export default {
       message: null,
       fighting: false,
       timeout: null,
+      timeoutMs,
+      expiresAt: Date.now() + timeoutMs,
     };
     channelsWithLobby.add(lobby.channelId);
     roshanLobbies.set(id, lobby);
 
     try {
-      await interaction.reply(buildLobbyView(lobby));
+      const view = buildLobbyView(lobby);
+      const attachment = buildRoshanAttachment();
+      if (attachment) view.files = [attachment];
+      await interaction.reply(view);
       lobby.message = await interaction.fetchReply();
     } catch (err) {
       error('Error sending Roshan lobby:', err.message);
@@ -185,14 +202,15 @@ export default {
       releaseLobby(id);
       try {
         await lobby.message.edit({
-          content: '⌛ Roshan zasnął z powrotem — nikt nie zebrał drużyny.',
+          content: '⌛ Roshan uciekł — nikt nie zebrał drużyny.',
           embeds: [],
+          attachments: [],
           components: [],
         });
       } catch (e) {
         error('Error editing expired Roshan message:', e.message);
       }
-    }, getSetting('roshan_lobby_timeout') * 60_000);
+    }, timeoutMs);
   },
 };
 
@@ -346,17 +364,17 @@ async function runFight(lobby) {
   const header = `🧟 Wyprawa na Roshana: ${players.map((id) => `<@${id}>`).join(' ')}\n`;
   const resultLines = win
     ? [
-        `🏆 **Roshan pokonany!** Szansa była ${Math.round(chanceFor(n) * 100)}%, a jednak się udało!`,
+        `🏆 **Roshan pokonany!**`,
         ...settlement.map((s) => `💰 <@${s.id}> +**${s.amount}** Golda`),
         `🛡️ Aegis zabezpieczony, ${getSetting('roshan_gold')} Golda do podziału!`,
       ]
     : [
-        `💀 **Roshan wygrywa!** Szansa na wygraną wynosiła ${Math.round(chanceFor(n) * 100)}%.`,
+        `💀 **Roshan wygrywa!**`,
         ...settlement.map((s) => `💸 <@${s.id}> -**${s.amount}** Golda`),
       ];
 
   let text = header;
-  await message.edit({ content: text, embeds: [], components: [] });
+  await message.edit({ content: text, embeds: [], components: [], attachments: [] });
 
   for (const line of story) {
     await sleep(1500);
