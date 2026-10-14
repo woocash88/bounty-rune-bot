@@ -27,12 +27,14 @@ export default {
 
     const embed = new EmbedBuilder()
       .setColor(0xf1c40f)
-      .setTitle(`📊 Profil Bounty: ${name}`)
+      .setTitle(name)
       .setThumbnail(targetUser.displayAvatarURL())
-      .addFields(
-        { name: '💰 Gold na koncie', value: `**${stats.gold}**`, inline: true },
-        { name: '🏅 Zebrane Bounty', value: `**${stats.bounties_collected}**`, inline: true },
-        { name: '🧟 Zabite Roshany', value: `**${stats.roshans_killed}**`, inline: true },
+      .setDescription(
+        [
+          `Gold: ${stats.gold}`,
+          `Zebrane runy: ${stats.bounties_collected}`,
+          `Zabite Roshany: ${stats.roshans_killed}`,
+        ].join('\n')
       );
 
     await interaction.editReply({ embeds: [embed] });
