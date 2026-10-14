@@ -21,28 +21,35 @@ export default {
     ),
 
   async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
-
     const giver = interaction.user;
     const target = interaction.options.getUser('user', true);
     const amount = interaction.options.getInteger('amount', true);
 
-    // Validation
+    // Validation (private)
     if (target.id === giver.id) {
-      await interaction.editReply({ content: 'Nie możesz dać Golda samemu sobie.' });
+      await interaction.reply({ content: 'Nie możesz dać Golda samemu sobie.', ephemeral: true });
       return;
     }
 
     if (target.bot) {
-      await interaction.editReply({ content: 'Nie możesz przekazać Golda botowi.' });
+      await interaction.reply({ content: 'Nie możesz przekazać Golda botowi.', ephemeral: true });
       return;
     }
+
+    // Public reply: everyone sees the transfer
+    await interaction.deferReply();
+
+    // Errors are private: drop the public placeholder and tell only the giver
+    const fail = async (content) => {
+      await interaction.deleteReply().catch(() => {});
+      await interaction.followUp({ content, ephemeral: true });
+    };
 
     try {
       const deducted = await tryDeductGold(giver.id, amount);
 
       if (!deducted) {
-        await interaction.editReply({ content: 'Hej nie masz tyle golda.' });
+        await fail('Hej nie masz tyle golda.');
         return;
       }
 
@@ -50,20 +57,12 @@ export default {
 
       log(`Give: ${giver.id} -> ${target.id}, amount=${amount}`);
 
-      // Ephemeral confirmation to giver
       await interaction.editReply({
-        content: `✅ Przekazałeś **${amount} Golda** użytkownikowi <@${target.id}>.`,
+        content: `<@${giver.id}> przekazał **${amount} Golda** użytkownikowi <@${target.id}>! 🤝`,
       });
-
-      // Public announcement in the channel
-      await interaction.channel.send(
-        `<@${giver.id}> przekazał **${amount} Golda** użytkownikowi <@${target.id}>! 🤝`
-      );
     } catch (err) {
       error('Error executing /give:', err.message);
-      await interaction.editReply({
-        content: `❌ Wystąpił błąd podczas przekazywania Golda: ${err.message}`,
-      });
+      await fail(`❌ Wystąpił błąd podczas przekazywania Golda: ${err.message}`);
     }
   },
 };

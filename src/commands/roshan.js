@@ -277,7 +277,7 @@ export async function handleRoshanButton(interaction) {
     const balance = await getUserGold(userId);
     if (balance < required) {
       await interaction.reply({
-        content: `Do walki z Roshanem potrzebujesz minimum **${required} Golda** (masz ${balance}) — tyle wynosi Twój udział w karze. Im większa drużyna, tym niższy próg.`,
+        content: `Do walki z Roshanem potrzebujesz minimum **${required} Golda** (masz ${balance}). Im większa drużyna, tym niższy próg wejścia.`,
         ephemeral: true,
       });
       return;
