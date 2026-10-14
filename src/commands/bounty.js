@@ -1,28 +1,40 @@
-import { SlashCommandBuilder } from 'discord.js';
-import { getUserGold } from '../db/queries.js';
+import { SlashCommandBuilder, EmbedBuilder } from 'discord.js';
+import { getUserStats } from '../db/queries.js';
 
 export default {
   data: new SlashCommandBuilder()
     .setName('bounty')
-    .setDescription('Sprawdź swoje saldo Gold')
+    .setDescription('Pokaż profil Bounty: Gold, zebrane Bounty i zabite Roshany')
     .addUserOption((option) =>
       option
         .setName('user')
-        .setDescription('Sprawdź Gold innego użytkownika (opcjonalnie)')
+        .setDescription('Gracz, którego profil chcesz zobaczyć (opcjonalnie)')
         .setRequired(false),
     ),
 
   async execute(interaction) {
-    await interaction.deferReply({ ephemeral: true });
+    await interaction.deferReply();
 
     const targetUser = interaction.options.getUser('user') ?? interaction.user;
-    const gold = await getUserGold(targetUser.id);
+    const stats = await getUserStats(targetUser.id);
 
-    const content =
-      targetUser.id === interaction.user.id
-        ? `💰 Twoje saldo Gold: **${gold}**`
-        : `💰 <@${targetUser.id}> ma Gold: **${gold}**`;
+    let name = targetUser.username;
+    try {
+      name = (await interaction.guild.members.fetch(targetUser.id)).displayName;
+    } catch {
+      // not in guild / fetch failed — username is fine
+    }
 
-    await interaction.editReply({ content });
+    const embed = new EmbedBuilder()
+      .setColor(0xf1c40f)
+      .setTitle(`📊 Profil Bounty: ${name}`)
+      .setThumbnail(targetUser.displayAvatarURL())
+      .addFields(
+        { name: '💰 Gold na koncie', value: `**${stats.gold}**`, inline: true },
+        { name: '🏅 Zebrane Bounty', value: `**${stats.bounties_collected}**`, inline: true },
+        { name: '🧟 Zabite Roshany', value: `**${stats.roshans_killed}**`, inline: true },
+      );
+
+    await interaction.editReply({ embeds: [embed] });
   },
 };

@@ -1,10 +1,11 @@
 import { Events, ActionRowBuilder, ButtonBuilder } from 'discord.js';
 import { log, error } from '../utils/logger.js';
-import { addGold } from '../db/queries.js';
+import { addGold, incrementStat } from '../db/queries.js';
 import { duelState, usersInActiveDuel, executeDuelAccept } from '../commands/duel.js';
 
-const claimTimeout = parseInt(process.env.BOUNTY_CLAIM_TIMEOUT_MS, 10) || 30000;
-const goldReward = parseInt(process.env.BOUNTY_GOLD_REWARD, 10) || 50;
+import { getSetting } from '../utils/settings.js';
+import { handleRoshanButton } from '../commands/roshan.js';
+
 
 // In-memory set of bounty message IDs currently being claimed.
 // Prevents the same bounty message from paying out twice when
@@ -124,6 +125,16 @@ export default {
       return;
     }
 
+    // --- Roshan buttons ---
+    if (interaction.customId.startsWith('roshan_')) {
+      try {
+        await handleRoshanButton(interaction);
+      } catch (err) {
+        error('Error handling Roshan button:', err.message);
+      }
+      return;
+    }
+
     if (interaction.customId !== 'bounty_claim') return;
 
     // ---------- Bounty claim flow ----------
@@ -162,8 +173,13 @@ export default {
       }
 
       // 5) Award gold atomically via Supabase RPC
+      const goldReward = getSetting('gold_reward');
       const userId = interaction.user.id;
       const newBalance = await addGold(userId, goldReward);
+      // Stats are best-effort: never fail a paid-out claim over a counter.
+      await incrementStat(userId, 'bounties_collected').catch((e) =>
+        error('Could not increment bounties_collected:', e.message)
+      );
 
       // 6) Replace the original message with a public claim announcement
       try {
@@ -189,7 +205,7 @@ export default {
         } catch {
           // User may have already dismissed it manually
         }
-      }, claimTimeout);
+      }, getSetting('claim_timeout'));
     } catch (err) {
       error('Error handling bounty_claim:', err.message);
 

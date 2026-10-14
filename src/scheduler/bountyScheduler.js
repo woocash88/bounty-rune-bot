@@ -1,5 +1,6 @@
 import { DiscordAPIError } from 'discord.js';
 import { log, error } from '../utils/logger.js';
+import { getSetting } from '../utils/settings.js';
 import {
   clearSchedule,
   getNextSpawnAt,
@@ -11,11 +12,10 @@ const channels = (process.env.BOUNTY_CHANNEL_IDS ?? '')
   .map((c) => c.trim())
   .filter(Boolean);
 
-const avgPerWeek = parseFloat(process.env.BOUNTY_AVG_PER_WEEK) || 1;
-
-// Mean interval in ms to achieve avgPerWeek spawns per week
-const MEAN_INTERVAL_MS =
-  (7 * 24 * 60 * 60 * 1000) / avgPerWeek;
+// Mean interval in ms to achieve the configured spawns per week
+function meanIntervalMs() {
+  return (7 * 24 * 60 * 60 * 1000) / getSetting('avg_per_week');
+}
 
 // Admin alert channel (optional)
 const adminLogChannelId = process.env.ADMIN_LOG_CHANNEL_ID ?? null;
@@ -29,7 +29,7 @@ let isRunning = false;
  * @returns {number} delay in ms
  */
 function nextDelayMs() {
-  return -Math.log(1 - Math.random()) * MEAN_INTERVAL_MS;
+  return -Math.log(1 - Math.random()) * meanIntervalMs();
 }
 
 /**
@@ -106,7 +106,7 @@ async function spawnRune(client) {
   if (!isRunning) return;
 
   try {
-    const goldReward = parseInt(process.env.BOUNTY_GOLD_REWARD, 10) || 50;
+    const goldReward = getSetting('gold_reward');
 
     if (channels.length === 0) {
       log('No bounty channels configured, skipping spawn.');
@@ -311,7 +311,7 @@ export function stopScheduler() {
  * @returns {Promise<string>} The ID of the channel where the rune was spawned.
  */
 export async function triggerManualSpawn(client, channelId) {
-  const goldReward = parseInt(process.env.BOUNTY_GOLD_REWARD, 10) || 50;
+  const goldReward = getSetting('gold_reward');
 
   const targetChannelId = channelId ?? randomChannelId();
 
@@ -403,7 +403,7 @@ export async function recomputeSchedule(client) {
   log('[Recompute] Cleared persisted schedule.');
 
   // 3. Compute a fresh spawn time using the *current* env value
-  const currentAvg = parseFloat(process.env.BOUNTY_AVG_PER_WEEK) || 1;
+  const currentAvg = getSetting('avg_per_week');
   const meanInterval = (7 * 24 * 60 * 60 * 1000) / currentAvg;
   const delay = -Math.log(1 - Math.random()) * meanInterval;
   const nextDate = new Date(Date.now() + delay);

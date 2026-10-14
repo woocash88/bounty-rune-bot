@@ -48,6 +48,9 @@ cp .env.example .env
 | `ADMIN_LOG_CHANNEL_ID` | Optional: channel ID for scheduler error notifications |
 | `MAX_GOLD_ADJUSTMENT` | Optional: max gold per /add or /remove command (default: 100000) |
 | `BOUNTY_DUEL_STAKE` | Optional: gold stake per player in /duel (default: 50) |
+| `BOUNTY_ROSHAN_GOLD` | Optional: gold reward/penalty in /roshan, split among the party (default: 350) |
+| `BOUNTY_ROSHAN_CHANCE_3` / `_4` / `_5` | Optional: /roshan win chance in percent for 3/4/5 players (defaults: 20/30/40) |
+| `BOUNTY_ROSHAN_LOBBY_TIMEOUT_MIN` | Optional: minutes before an unfilled /roshan lobby expires (default: 10) |
 
 ### 3. Database
 
@@ -90,7 +93,7 @@ npm run dev      # Development (with nodemon auto-restart)
 
 | Command | Description |
 |---|---|
-| `/bounty` | Check your Gold balance |
+| `/bounty [user]` | Publiczny profil gracza: Gold, zebrane Bounty, zabite Roshany (swój lub wskazanego gracza) |
 | `/bountyrank` | Top 10 leaderboard |
 | `/resetglobal` | (Admin) Reset all users' Gold to 0 |
 | `/reset <user>` | (Admin) Reset a specific user's Gold to 0 |
@@ -100,6 +103,14 @@ npm run dev      # Development (with nodemon auto-restart)
 | `/give <user> <amount>` | Przekaż część swojego Golda innemu użytkownikowi |
 | `/duel <user>` | Wyzwij innego użytkownika na pojedynek o Gold (stawka: BOUNTY_DUEL_STAKE) |
 | `/next` | Sprawdź kiedy pojawi się następna Bounty Runa (odczyt tylko, brak efektów ubocznych) |
+| `/bounty_gold_reward [value]` | (Admin) Nagroda za Bounty Runę w Gold; bez argumentu pokazuje aktualną wartość |
+| `/bounty_avg_per_week [value]` | (Admin) Średnia liczba spawnów na tydzień; od razu przelicza termin następnej runy |
+| `/bounty_claim_timeout [value]` | (Admin) Po ilu sekundach znika potwierdzenie zebrania runy |
+| `/bounty_duel_stake [value]` | (Admin) Stawka w /duel (na gracza) |
+| `/roshan_gold [value]` | (Admin) Nagroda/kara za Roshana, dzielona na drużynę |
+| `/roshan_5_winchance`, `/roshan_4_winchance`, `/roshan_3_winchance [value]` | (Admin) Szansa na pokonanie Roshana w % dla 5/4/3 graczy |
+| `/roshan_lobby_timeout [value]` | (Admin) Po ilu minutach wygasa niezapełnione lobby Roshana |
+| `/roshan` | Przywołaj Roshana: zbierz 3–5 graczy, walka z szansą 20/30/40% na wygraną (nagroda/kara: BOUNTY_ROSHAN_GOLD dzielone po równo) |
 
 ## Reliability
 
@@ -140,3 +151,7 @@ npm run dev      # Development (with nodemon auto-restart)
 ## License
 
 MIT
+
+## Ustawienia zmieniane z Discorda
+
+Wartości powyższych komend są zapisywane w tabeli `bot_settings` (Supabase) i działają od razu, bez restartu. Kolejność: wartość ustawiona z Discorda > `.env` > domyślna. Wymaga uruchomienia sekcji `bot_settings` z `db/schema.sql`.

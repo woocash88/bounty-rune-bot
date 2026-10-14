@@ -1,6 +1,7 @@
 import { SlashCommandBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from 'discord.js';
 import { tryDeductGold, addGold, getUserGold } from '../db/queries.js';
 import { error } from '../utils/logger.js';
+import { getSetting } from '../utils/settings.js';
 
 // ---------- Module-level duel state (in-memory, resets on restart) ----------
 
@@ -150,8 +151,6 @@ const DUEL_VARIANTS = [
 
 // ---------- Command definition ----------
 
-const duelStake = parseInt(process.env.BOUNTY_DUEL_STAKE, 10) || 50;
-
 export default {
   data: new SlashCommandBuilder()
     .setName('duel')
@@ -190,6 +189,9 @@ export default {
       await interaction.editReply({ content: `<@${target.id}> jest już w trakcie innego pojedynku.` });
       return;
     }
+
+    // Stake is fixed when the challenge is issued, even if an admin changes it later
+    const duelStake = getSetting('duel_stake');
 
     // --- Read-only balance check (preliminary gate) ---
     try {
@@ -252,6 +254,7 @@ export default {
       challengerId: challenger.id,
       targetId: target.id,
       message,
+      stake: duelStake,
       resolved: false,
       timeout: null,
     };
@@ -288,7 +291,7 @@ export default {
  * Returns the winner's user ID and the edited message object.
  */
 export async function executeDuelAccept(state, interaction) {
-  const { challengerId, targetId, message } = state;
+  const { challengerId, targetId, message, stake: duelStake } = state;
   const pot = duelStake * 2;
 
   // -- Deduct stakes atomically --

@@ -8,6 +8,7 @@ import { stopScheduler } from './scheduler/bountyScheduler.js';
 import { releaseLock } from './db/queries.js';
 import { stopHeartbeat } from './utils/heartbeat.js';
 import { instanceId } from './events/ready.js';
+import { loadSettings } from './utils/settings.js';
 
 // --- Environment validation ---
 const requiredVars = [
@@ -101,4 +102,5 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 
 // --- Login ---
+await loadSettings();
 client.login(process.env.DISCORD_TOKEN);

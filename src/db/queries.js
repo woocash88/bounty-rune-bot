@@ -57,6 +57,42 @@ export async function tryDeductGold(userId, amount) {
 }
 
 /**
+ * Atomically increment a profile stat ('bounties_collected' | 'roshans_killed').
+ * @param {string} userId
+ * @param {'bounties_collected'|'roshans_killed'} stat
+ * @param {number} [amount=1]
+ */
+export async function incrementStat(userId, stat, amount = 1) {
+  const { error } = await supabase.rpc('increment_stat', {
+    p_user_id: userId,
+    p_stat: stat,
+    p_amount: amount,
+  });
+
+  if (error) throw error;
+}
+
+/**
+ * Get a user's profile stats (zeros if the user has no row yet).
+ * @param {string} userId
+ * @returns {Promise<{gold: number, bounties_collected: number, roshans_killed: number}>}
+ */
+export async function getUserStats(userId) {
+  const { data, error } = await supabase
+    .from('bounty_users')
+    .select('gold, bounties_collected, roshans_killed')
+    .eq('user_id', userId)
+    .maybeSingle();
+
+  if (error) throw error;
+  return {
+    gold: data?.gold ?? 0,
+    bounties_collected: data?.bounties_collected ?? 0,
+    roshans_killed: data?.roshans_killed ?? 0,
+  };
+}
+
+/**
  * Reset a single user's gold to 0.
  * @param {string} userId
  */
@@ -95,6 +131,30 @@ export async function getLeaderboard(limit = 10) {
 
   if (error) throw error;
   return data ?? [];
+}
+
+// ============================================================
+// Runtime settings – bot_settings table
+// ============================================================
+
+/**
+ * @returns {Promise<Array<{key: string, value: number}>>}
+ */
+export async function getAllSettings() {
+  const { data, error } = await supabase.from('bot_settings').select('key, value');
+  if (error) throw error;
+  return data ?? [];
+}
+
+/**
+ * @param {string} key
+ * @param {number} value
+ */
+export async function upsertSetting(key, value) {
+  const { error } = await supabase
+    .from('bot_settings')
+    .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: 'key' });
+  if (error) throw error;
 }
 
 // ============================================================

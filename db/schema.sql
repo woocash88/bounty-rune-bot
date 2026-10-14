@@ -121,3 +121,47 @@ BEGIN
   RETURN FALSE;
 END;
 $$;
+
+-- ============================================================
+-- Profile stats (migration: safe to re-run)
+-- bounties_collected: Bounty Runes claimed
+-- roshans_killed: Roshan fights won (counted per party member)
+-- ============================================================
+ALTER TABLE bounty_users ADD COLUMN IF NOT EXISTS bounties_collected INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE bounty_users ADD COLUMN IF NOT EXISTS roshans_killed INTEGER NOT NULL DEFAULT 0;
+
+-- Atomic stat increment. p_stat must be 'bounties_collected' or 'roshans_killed'.
+CREATE OR REPLACE FUNCTION increment_stat(p_user_id TEXT, p_stat TEXT, p_amount INTEGER DEFAULT 1)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  IF p_stat NOT IN ('bounties_collected', 'roshans_killed') THEN
+    RAISE EXCEPTION 'Unknown stat: %', p_stat;
+  END IF;
+
+  INSERT INTO bounty_users (user_id, gold, bounties_collected, roshans_killed, updated_at)
+  VALUES (
+    p_user_id, 0,
+    CASE WHEN p_stat = 'bounties_collected' THEN p_amount ELSE 0 END,
+    CASE WHEN p_stat = 'roshans_killed' THEN p_amount ELSE 0 END,
+    NOW()
+  )
+  ON CONFLICT (user_id) DO UPDATE SET
+    bounties_collected = bounty_users.bounties_collected
+      + CASE WHEN p_stat = 'bounties_collected' THEN p_amount ELSE 0 END,
+    roshans_killed = bounty_users.roshans_killed
+      + CASE WHEN p_stat = 'roshans_killed' THEN p_amount ELSE 0 END,
+    updated_at = NOW();
+END;
+$$;
+
+-- ============================================================
+-- Runtime settings changed from Discord (key/value, numeric)
+-- ============================================================
+CREATE TABLE IF NOT EXISTS bot_settings (
+  key        TEXT PRIMARY KEY,
+  value      DOUBLE PRECISION NOT NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
