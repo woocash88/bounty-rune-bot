@@ -103,6 +103,7 @@ npm run dev      # Development (with nodemon auto-restart)
 | `/give <user> <amount>` | Przekaż część swojego Golda innemu użytkownikowi |
 | `/duel <user>` | Wyzwij innego użytkownika na pojedynek o Gold (stawka: BOUNTY_DUEL_STAKE) |
 | `/next` | Sprawdź kiedy pojawi się następna Bounty Runa (odczyt tylko, brak efektów ubocznych) |
+| `/bounty_settings` | (Admin) Podsumowanie wszystkich ustawień w jednym embedzie |
 | `/bounty_gold_reward [value]` | (Admin) Nagroda za Bounty Runę w Gold; bez argumentu pokazuje aktualną wartość |
 | `/bounty_avg_per_week [value]` | (Admin) Średnia liczba spawnów na tydzień; od razu przelicza termin następnej runy |
 | `/bounty_claim_timeout [value]` | (Admin) Po ilu sekundach znika potwierdzenie zebrania runy |
