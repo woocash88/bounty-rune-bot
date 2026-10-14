@@ -31,9 +31,9 @@ export default {
       .setThumbnail(targetUser.displayAvatarURL())
       .setDescription(
         [
-          `Gold: ${stats.gold}`,
-          `Zebrane runy: ${stats.bounties_collected}`,
-          `Zabite Roshany: ${stats.roshans_killed}`,
+          `💰 Gold: **${stats.gold}**`,
+          `🏅 Zebrane runy: **${stats.bounties_collected}**`,
+          `👹 Zabite Roshany: **${stats.roshans_killed}**`,
         ].join('\n')
       );
 
