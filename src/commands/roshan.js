@@ -41,33 +41,28 @@ let lobbyCounter = 0;
 
 const ROSHAN_VARIANTS = [
   (names) => [
-    `🧟 ${names} wchodzą do groty Roshana, a ten otwiera jedno oko i uderza Slamem!`,
-    `🗡️ Drużyna kontruje wszystkimi czarami i itemami, jakie mają, a Roshan ryczy w fazie wściekłości...`,
-    `🥁 Ostatnia wymiana ciosów... kto padnie?!`,
+    `🧟 ${names} wchodzą do jaskini Roshana, a ten otwiera jedno oko i łamie wszystkich na starcie`,
+    `🗡️ Drużyna kontruje wszystkimi czarami i itemami, jakie mają...  Roshan zaryczał...`,
+    `🥁 Ostatnia wymiana ciosów... kto poniesie klęskę?!`,
   ],
   (names) => [
-    `🔔 ${names} budzą Roshana kopniakiem w tyłek, a ten młóci łapami na oślep!`,
-    `💀 Tank łapie aggro, ale ktoś zapomniał o BKB i właśnie leci w powietrze...`,
-    `🎲 Hp Roshana spada do resztek... a drużyna też ledwo stoi!`,
+    `🧀 ${names} podkradają się pod leże, aby zgarnąć łup.`,
+    `⚡ Roshan rzuca głazem i bashuje, drużyna odpala wszystkie ulti, ale połowa chybiona...`,
+    `🌫️ Kurz opada, a w grocie słychać tylko ciężki oddech...`,
   ],
   (names) => [
-    `🧀 ${names} podkradają się pod leże, licząc na Aegisa i ser!`,
-    `⚡ Roshan rzuca w nich głazem, drużyna odpala wszystkie ulty naraz, a połowa trafia w ścianę...`,
-    `🌫️ Dym opada, a w grocie słychać tylko ciężki oddech...`,
+    `🪓 ${names} wpadają do jaskini z krzykiem "DAWAĆ GOLDA!" ale od razu dostają z łapy i upadają!`,
+    `🍞 Support atakuje go z autoataku, nie jestem jednak pewien czy to coś daje...`,
+    `😱 Jednakże Roshan ryczy tak, że na mapie gasną światła... kto tym razem odniesie zwycięstwo?!`,
   ],
   (names) => [
-    `🪓 ${names} wpadają do jaskini z krzykiem "ZA AEGISA!" i od razu dostają Slamem w twarz!`,
-    `🍞 Support rzuca w Roshana bułką z Biedry, dla którego to najwyraźniej śmiertelna obraza...`,
-    `😱 Roshan ryczy tak, że na mapie gasną światła... kto się podniesie?!`,
-  ],
-  (names) => [
-    `📢 ${names} wbijają na Roshana, bo "tylko 10 minut do końca gry, zdążymy!".`,
-    `🤦 Carry jest na farmie, support na wardach, a Roshan już bije po łbach tych, którzy dotarli...`,
+    `📢 ${names} mają wielką nadzieję że za golda będzie można coś kupić, dlatego idą napierdalać Rosha.`,
+    `🤦 Zawdonicy są wyfarmieni, zaopatrzeni w cały sprzęt, a Roshan już bije po łbach tych, mimo dobrego przygotowania`,
     `⏳ W oddali słychać jeszcze krzyk "ZARAZ BĘDĘ!"... ale czy zdążą?!`,
   ],
   (names) => [
-    `🧙 ${names} odpalają Black King Bar i ruszają na Roshana jak na rodzinny obiad!`,
-    `🥩 Roshan kontruje Roar'em i zamienia kilku z nich w kotlety schabowe!`,
+    `🧙 ${names} odpalają BKB i ruszają na Roshana jak po ostatniego karpia do Kauflandu!`,
+    `🥩 Roshan kontruje okrzykiem i napierdala w nich jak w kotlety schabowe!`,
     `🔥 Pozostali walczą dalej na kolanach... komu zostanie ostatni cios?!`,
   ],
   (names) => [
@@ -76,9 +71,9 @@ const ROSHAN_VARIANTS = [
     `🎯 Ktoś krzyczy "FOKUS NA ROSHANA!", a nikt nie wie, kto jest tank... kto przeżyje?!`,
   ],
   (names) => [
-    `🚪 ${names} wchodzą do jaskini cichutko jak ninja... po czym ktoś potyka się o własny Blink Dagger!`,
+    `🚪 ${names} wchodzą do jaskini po cichaczu... po czym ktoś potyka się o własne przyrodzenie!`,
     `🪨 Roshan budzi się wściekły, rzuca w nich skałą i traci przy tym dwa zęby!`,
-    `🦷 Jeden ząb leci w górę w zwolnionym tempie... kto go złapie, ten pewnie wygra!`,
+    `🦷 Dobra wyjebane co tu sie dzieje, napisz w końcu kto wygrał?!`,
   ],
 ];
 
@@ -133,10 +128,10 @@ function buildLobbyView(lobby) {
     .setColor(0xb71c1c)
     .setTitle('👹 Roshan się pojawił!')
     .setDescription(
-      `Zbierz drużynę min. ${MIN_PLAYERS} osób aby stawić czoło Roshanowi!\n` +
-        `Wpisowe: **${entry}g** od gracza (płatne przy starcie walki).\n` +
-        `Nagroda przy wygranej: **${gold}g** do podziału. Im mniejsza drużyna, tym większa nagroda na osobę, ale tym trudniej o wygraną.\n` +
-        `Uwaga: po wygranej jeden losowy gracz może polec. Jego część nagrody dzielą ocaleni.\n` +
+      `⚔️ Zbierz drużynę między ${MIN_PLAYERS}-${MAX_PLAYERS} osób, aby stawić czoło Roshanowi!\n` +
+        `📜 Wpisowe: ${entry}g\n` +
+        `💰 Nagroda: ${gold}g na drużynę.\n\n` +
+        `⚠️ Uwaga! Gracz może zginąć w walce, a jego część nagrody trafia do pozostałych!\n` +
         `Roshan ucieknie <t:${expiresUnix}:R>`
     )
     .setThumbnail('attachment://roshan.png')
