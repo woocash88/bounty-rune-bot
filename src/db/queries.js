@@ -120,12 +120,12 @@ export async function resetAllUsers() {
 /**
  * Get top N users by gold descending.
  * @param {number} limit
- * @returns {Promise<Array<{user_id: string, gold: number}>>}
+ * @returns {Promise<Array<{user_id: string, gold: number, roshans_killed: number}>>}
  */
 export async function getLeaderboard(limit = 10) {
   const { data, error } = await supabase
     .from('bounty_users')
-    .select('user_id, gold')
+    .select('user_id, gold, roshans_killed')
     .order('gold', { ascending: false })
     .limit(limit);
 

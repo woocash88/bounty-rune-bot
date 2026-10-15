@@ -48,7 +48,7 @@ export default {
       }
 
       const prefix = i < 3 ? MEDALS[i] : `${i + 1}.`;
-      lines.push(`${prefix} ${displayName} — **${entry.gold} Gold**`);
+      lines.push(`${prefix} ${displayName} — **${entry.gold} Gold** · 👹 **${entry.roshans_killed ?? 0}**`);
     }
 
     const attachment = buildBountyAttachment();

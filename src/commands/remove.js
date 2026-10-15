@@ -34,15 +34,17 @@ export default {
     const target = interaction.options.getUser('user', true);
     const amount = interaction.options.getInteger('gold', true);
 
-    await interaction.deferReply({ ephemeral: true });
-
-    // Input validation: reject out-of-range amounts
+    // Input validation: reject out-of-range amounts (private, before the public reply)
     if (amount > maxAdjustment) {
-      await interaction.editReply({
+      await interaction.reply({
         content: `❌ Maksymalna dozwolona wartość to **${maxAdjustment} Gold**.`,
+        ephemeral: true,
       });
       return;
     }
+
+    // Public reply: everyone sees the result
+    await interaction.deferReply();
 
     try {
       // Pass negative amount; increment_gold clamps at 0 via GREATEST
@@ -51,8 +53,11 @@ export default {
         content: `✅ Odjęto **${amount} Gold** użytkownikowi <@${target.id}>. Nowe saldo: **${newBalance} Gold**.`,
       });
     } catch (err) {
-      await interaction.editReply({
+      // Keep errors private: drop the public placeholder, then tell only the admin
+      await interaction.deleteReply().catch(() => {});
+      await interaction.followUp({
         content: `❌ Błąd odejmowania Gold: ${err.message}`,
+        ephemeral: true,
       });
     }
   },
