@@ -47,6 +47,7 @@ cp .env.example .env
 | `BOUNTY_CLAIM_TIMEOUT_MS` | Ephemeral confirmation auto-delete delay in ms (default: 30000) |
 | `ADMIN_LOG_CHANNEL_ID` | Optional: channel ID for scheduler error notifications |
 | `MAX_GOLD_ADJUSTMENT` | Optional: max gold per /add or /remove command (default: 100000) |
+| `BOUNTY_GIVE_COOLDOWN_DAYS` | Optional: /give limit, one transfer per this many days per user (default: 7, 0 = no limit). Requires the `last_give_at` migration in `db/schema.sql` |
 | `BOUNTY_DUEL_STAKE` | Optional: base gold stake per player in /duel (default: 50); the real stake is rolled after acceptance (x1/x2/x4/x6 or VA BANK) |
 | `BOUNTY_ROSHAN_ENTRY` | Optional: entry fee per player in /roshan (default: 50). Paid when the fight starts, never refunded; a lost fight costs only this fee |
 | `BOUNTY_ROSHAN_GOLD` | Optional: gold prize pool in /roshan, split among the party (default: 660). The per-player share is rounded up (pool / party size), so with a pool that doesn't divide evenly the total payout can slightly exceed the pool. |
@@ -102,13 +103,14 @@ npm run dev      # Development (with nodemon auto-restart)
 | `/add <user> <gold>` | (Admin) Add Gold to a user |
 | `/remove <user> <gold>` | (Admin) Remove Gold from a user (won't go below 0) |
 | `/rerollschedule` | (Admin) Clear the persisted schedule and recompute the next Bounty Rune spawn time using the current `BOUNTY_AVG_PER_WEEK` value |
-| `/give <user> <amount>` | Przekaż część swojego Golda innemu użytkownikowi |
+| `/give <user> <amount>` | Przekaż część swojego Golda innemu użytkownikowi (limit: 1 przekazanie na tydzień, patrz `/give_cooldown_days`) |
 | `/duel <user>` | Wyzwij innego użytkownika na pojedynek o Gold. Stawka jest losowana kostką k100 po akceptacji: 1–50 → x1, 51–75 → x2, 76–90 → x4, 91–99 → x6 bazowej stawki (BOUNTY_DUEL_STAKE), 100 → **VA BANK** (cały portfel uboższego gracza). Stawka nigdy nie przekracza portfela uboższego gracza, a obaj płacą tyle samo. Zwycięzca dostaje 2× stawka |
 | `/next` | Sprawdź kiedy pojawi się następna Bounty Runa (odczyt tylko, brak efektów ubocznych) |
 | `/bounty_settings` | (Admin) Podsumowanie wszystkich ustawień w jednym embedzie |
 | `/bounty_gold_reward [value]` | (Admin) Nagroda za Bounty Runę w Gold; bez argumentu pokazuje aktualną wartość |
 | `/bounty_avg_per_week [value]` | (Admin) Średnia liczba spawnów na tydzień; od razu przelicza termin następnej runy |
 | `/bounty_claim_timeout [value]` | (Admin) Po ilu sekundach znika potwierdzenie zebrania runy |
+| `/give_cooldown_days [value]` | (Admin) Co ile dni gracz może użyć `/give` (domyślnie 7, 0 = bez limitu) |
 | `/bounty_duel_stake [value]` | (Admin) Stawka w /duel (na gracza) |
 | `/roshan_entry [value]` | (Admin) Wpisowe do walki z Roshanem (na gracza) |
 | `/roshan_gold [value]` | (Admin) Pula nagrody za Roshana, dzielona na drużynę |

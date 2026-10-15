@@ -93,6 +93,31 @@ export async function getUserStats(userId) {
 }
 
 /**
+ * Atomically claim a user's weekly /give slot.
+ * @param {string} userId
+ * @param {number} cooldownSeconds
+ * @returns {Promise<Date|null>} null if claimed; otherwise when the user may give again
+ */
+export async function tryClaimGive(userId, cooldownSeconds) {
+  const { data, error } = await supabase.rpc('try_claim_give', {
+    p_user_id: userId,
+    p_cooldown_seconds: cooldownSeconds,
+  });
+
+  if (error) throw error;
+  return data ? new Date(data) : null;
+}
+
+/**
+ * Release a claimed /give slot (the transfer didn't happen).
+ * @param {string} userId
+ */
+export async function releaseGiveClaim(userId) {
+  const { error } = await supabase.rpc('release_give_claim', { p_user_id: userId });
+  if (error) throw error;
+}
+
+/**
  * Reset a single user's gold to 0.
  * @param {string} userId
  */

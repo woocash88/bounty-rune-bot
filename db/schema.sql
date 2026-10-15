@@ -165,3 +165,47 @@ CREATE TABLE IF NOT EXISTS bot_settings (
   value      DOUBLE PRECISION NOT NULL,
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
+
+-- ============================================================
+-- /give weekly limit (migration: safe to re-run)
+-- last_give_at: when the user last transferred gold to someone
+-- ============================================================
+ALTER TABLE bounty_users ADD COLUMN IF NOT EXISTS last_give_at TIMESTAMPTZ;
+
+-- Atomically claim the user's /give slot.
+-- Returns NULL if the slot was claimed (transfer allowed, last_give_at = now),
+-- or the timestamp when the user may give again if still on cooldown.
+CREATE OR REPLACE FUNCTION try_claim_give(p_user_id TEXT, p_cooldown_seconds INTEGER)
+RETURNS TIMESTAMPTZ
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  v_last TIMESTAMPTZ;
+  v_window INTERVAL := make_interval(secs => p_cooldown_seconds);
+BEGIN
+  INSERT INTO bounty_users (user_id, gold, updated_at)
+  VALUES (p_user_id, 0, NOW())
+  ON CONFLICT (user_id) DO NOTHING;
+
+  SELECT last_give_at INTO v_last FROM bounty_users WHERE user_id = p_user_id FOR UPDATE;
+
+  IF v_last IS NOT NULL AND v_last > NOW() - v_window THEN
+    RETURN v_last + v_window;
+  END IF;
+
+  UPDATE bounty_users SET last_give_at = NOW() WHERE user_id = p_user_id;
+  RETURN NULL;
+END;
+$$;
+
+-- Release the slot again (used when the transfer didn't actually happen).
+CREATE OR REPLACE FUNCTION release_give_claim(p_user_id TEXT)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  UPDATE bounty_users SET last_give_at = NULL WHERE user_id = p_user_id;
+END;
+$$;

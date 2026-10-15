@@ -1,6 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
-import { tryDeductGold, addGold } from '../db/queries.js';
+import { tryDeductGold, addGold, tryClaimGive, releaseGiveClaim } from '../db/queries.js';
 import { log, error } from '../utils/logger.js';
+import { getSetting } from '../utils/settings.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -45,10 +46,28 @@ export default {
       await interaction.followUp({ content, ephemeral: true });
     };
 
+    // Weekly limit: claim the giver's slot atomically *before* moving any gold
+    const cooldownDays = getSetting('give_cooldown_days');
+    let claimed = false;
+    let deducted = false;
+
     try {
-      const deducted = await tryDeductGold(giver.id, amount);
+      if (cooldownDays > 0) {
+        const nextAllowed = await tryClaimGive(giver.id, cooldownDays * 86400);
+        if (nextAllowed) {
+          await fail(
+            `Możesz przekazać Gold tylko raz na ${cooldownDays} dni. ` +
+              `Następne przekazanie: <t:${Math.floor(nextAllowed.getTime() / 1000)}:F> (<t:${Math.floor(nextAllowed.getTime() / 1000)}:R>).`
+          );
+          return;
+        }
+        claimed = true;
+      }
+
+      deducted = await tryDeductGold(giver.id, amount);
 
       if (!deducted) {
+        if (claimed) await releaseGiveClaim(giver.id).catch(() => {});
         await fail('Hej nie masz tyle golda.');
         return;
       }
@@ -62,6 +81,8 @@ export default {
       });
     } catch (err) {
       error('Error executing /give:', err.message);
+      // Nothing was transferred, so don't burn the user's weekly slot
+      if (claimed && !deducted) await releaseGiveClaim(giver.id).catch(() => {});
       await fail(`❌ Wystąpił błąd podczas przekazywania Golda: ${err.message}`);
     }
   },

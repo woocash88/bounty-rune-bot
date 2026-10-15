@@ -7,6 +7,7 @@ const BOUNTY_ROWS = [
   ['avg_per_week', 'bounty_avg_per_week'],
   ['claim_timeout', 'bounty_claim_timeout'],
   ['duel_stake', 'bounty_duel_stake'],
+  ['give_cooldown_days', 'give_cooldown_days'],
 ];
 
 const ROSHAN_ROWS = [

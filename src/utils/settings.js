@@ -25,6 +25,10 @@ export const SETTINGS = {
     env: 'BOUNTY_DUEL_STAKE', def: 50, min: 1, max: 100000, int: true, scale: 1,
     label: 'Stawka w pojedynku (na gracza)', unit: 'Gold',
   },
+  give_cooldown_days: {
+    env: 'BOUNTY_GIVE_COOLDOWN_DAYS', def: 7, min: 0, max: 365, int: true, scale: 1,
+    label: 'Limit /give: 1 przekazanie Golda na X dni (0 = bez limitu)', unit: 'dni',
+  },
   roshan_entry: {
     env: 'BOUNTY_ROSHAN_ENTRY', def: 50, min: 1, max: 100000, int: true, scale: 1,
     label: 'Wpisowe do walki z Roshanem (na gracza)', unit: 'Gold',
