@@ -47,9 +47,11 @@ cp .env.example .env
 | `BOUNTY_CLAIM_TIMEOUT_MS` | Ephemeral confirmation auto-delete delay in ms (default: 30000) |
 | `ADMIN_LOG_CHANNEL_ID` | Optional: channel ID for scheduler error notifications |
 | `MAX_GOLD_ADJUSTMENT` | Optional: max gold per /add or /remove command (default: 100000) |
-| `BOUNTY_DUEL_STAKE` | Optional: gold stake per player in /duel (default: 50) |
-| `BOUNTY_ROSHAN_GOLD` | Optional: gold reward/penalty in /roshan, split among the party (default: 350) |
-| `BOUNTY_ROSHAN_CHANCE_3` / `_4` / `_5` | Optional: /roshan win chance in percent for 3/4/5 players (defaults: 20/30/40) |
+| `BOUNTY_DUEL_STAKE` | Optional: base gold stake per player in /duel (default: 50); the real stake is rolled after acceptance (x1/x2/x4/x6 or VA BANK) |
+| `BOUNTY_ROSHAN_ENTRY` | Optional: entry fee per player in /roshan (default: 50). Paid when the fight starts, never refunded; a lost fight costs only this fee |
+| `BOUNTY_ROSHAN_GOLD` | Optional: gold prize pool in /roshan, split among the party (default: 660). The per-player share is rounded up (pool / party size), so with a pool that doesn't divide evenly the total payout can slightly exceed the pool. |
+| `BOUNTY_ROSHAN_DEATH_CHANCE` | Optional: chance in percent (default: 5, 0 disables) that after a won /roshan fight one random player dies and gets no reward; the pool is then split among the survivors |
+| `BOUNTY_ROSHAN_CHANCE_3` / `_4` / `_5` | Optional: /roshan win chance in percent for 3/4/5 players (defaults: 20/28/38) |
 | `BOUNTY_ROSHAN_LOBBY_TIMEOUT_MIN` | Optional: minutes before an unfilled /roshan lobby expires (default: 10) |
 
 ### 3. Database
@@ -101,17 +103,19 @@ npm run dev      # Development (with nodemon auto-restart)
 | `/remove <user> <gold>` | (Admin) Remove Gold from a user (won't go below 0) |
 | `/rerollschedule` | (Admin) Clear the persisted schedule and recompute the next Bounty Rune spawn time using the current `BOUNTY_AVG_PER_WEEK` value |
 | `/give <user> <amount>` | Przekaż część swojego Golda innemu użytkownikowi |
-| `/duel <user>` | Wyzwij innego użytkownika na pojedynek o Gold (stawka: BOUNTY_DUEL_STAKE) |
+| `/duel <user>` | Wyzwij innego użytkownika na pojedynek o Gold. Stawka jest losowana kostką k100 po akceptacji: 1–50 → x1, 51–75 → x2, 76–90 → x4, 91–99 → x6 bazowej stawki (BOUNTY_DUEL_STAKE), 100 → **VA BANK** (cały portfel uboższego gracza). Stawka nigdy nie przekracza portfela uboższego gracza, a obaj płacą tyle samo. Zwycięzca dostaje 2× stawka |
 | `/next` | Sprawdź kiedy pojawi się następna Bounty Runa (odczyt tylko, brak efektów ubocznych) |
 | `/bounty_settings` | (Admin) Podsumowanie wszystkich ustawień w jednym embedzie |
 | `/bounty_gold_reward [value]` | (Admin) Nagroda za Bounty Runę w Gold; bez argumentu pokazuje aktualną wartość |
 | `/bounty_avg_per_week [value]` | (Admin) Średnia liczba spawnów na tydzień; od razu przelicza termin następnej runy |
 | `/bounty_claim_timeout [value]` | (Admin) Po ilu sekundach znika potwierdzenie zebrania runy |
 | `/bounty_duel_stake [value]` | (Admin) Stawka w /duel (na gracza) |
-| `/roshan_gold [value]` | (Admin) Nagroda/kara za Roshana, dzielona na drużynę |
+| `/roshan_entry [value]` | (Admin) Wpisowe do walki z Roshanem (na gracza) |
+| `/roshan_gold [value]` | (Admin) Pula nagrody za Roshana, dzielona na drużynę |
 | `/roshan_5_winchance`, `/roshan_4_winchance`, `/roshan_3_winchance [value]` | (Admin) Szansa na pokonanie Roshana w % dla 5/4/3 graczy |
+| `/roshan_death_chance [value]` | (Admin) Szansa w % (domyślnie 5, 0 wyłącza), że po wygranej walce jeden losowy gracz poległ i nie dostaje nagrody — pulę dzielą ocaleni |
 | `/roshan_lobby_timeout [value]` | (Admin) Po ilu minutach wygasa niezapełnione lobby Roshana |
-| `/roshan` | Przywołaj Roshana: zbierz 3–5 graczy, walka z szansą 20/30/40% na wygraną (nagroda/kara: BOUNTY_ROSHAN_GOLD dzielone po równo) |
+| `/roshan` | Przywołaj Roshana: zbierz 3–5 graczy, walka z ukrytą szansą na wygraną (nagroda/kara: BOUNTY_ROSHAN_GOLD dzielone na drużynę, udział na osobę zaokrąglany w górę — przy puli niepodzielnej równo suma wypłat może lekko przekroczyć pulę) |
 
 ## Reliability
 

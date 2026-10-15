@@ -11,6 +11,27 @@ export const duelState = new Map();
 // Set<userId> — users currently involved in a pending/in-progress duel
 export const usersInActiveDuel = new Set();
 
+// ---------- Stake dice ----------
+
+// d100 roll -> stake tier. `max` is the highest roll (inclusive) that lands in the tier;
+// `mult` multiplies the base stake (BOUNTY_DUEL_STAKE); `vabank` stakes the poorer
+// player's whole balance. Edit the thresholds here.
+const STAKE_TIERS = [
+  { max: 50, mult: 1, label: '🎲 Standardowa stawka' },
+  { max: 75, mult: 2, label: '💰 Podwójna stawka!' },
+  { max: 90, mult: 4, label: '💎 Wysoka stawka!' },
+  { max: 99, mult: 6, label: '🔥 Ogromna stawka!' },
+  { max: 100, vabank: true, label: '💀 VA BANK! Gramy o wszystko!' },
+];
+
+const MAX_STAKE_MULT = Math.max(...STAKE_TIERS.map((t) => t.mult ?? 0));
+
+function rollStakeTier() {
+  const roll = Math.floor(Math.random() * 100) + 1;
+  const tier = STAKE_TIERS.find((t) => roll <= t.max);
+  return { roll, tier };
+}
+
 // ---------- Helpers ----------
 
 let duelIdCounter = 0;
@@ -239,7 +260,7 @@ export default {
       message = await interaction.channel.send({
         content:
           `⚔️ <@${challenger.id}> wyzywa <@${target.id}> na pojedynek o Gold!\n` +
-          `Stawka: **${duelStake} Golda** każdy — zwycięzca zgarnia całą pulę (**${duelStake * 2} Golda**)!`,
+          `Stawka zostanie wylosowana kostką po akceptacji (od **${duelStake}** do **${duelStake * MAX_STAKE_MULT} Golda** każdy, z szansą na VA BANK)!`,
         components: [row],
       });
     } catch (err) {
@@ -279,7 +300,7 @@ export default {
 
     // --- Ephemeral confirmation to challenger ---
     await interaction.editReply({
-      content: `⚔️ Wyzwałeś <@${target.id}> na pojedynek o **${duelStake} Golda**! Czekamy na odpowiedź...`,
+      content: `⚔️ Wyzwałeś <@${target.id}> na pojedynek o Gold! Stawka zostanie wylosowana po akceptacji (od **${duelStake}** Golda). Czekamy na odpowiedź...`,
     });
   },
 };
@@ -291,27 +312,63 @@ export default {
  * Returns the winner's user ID and the edited message object.
  */
 export async function executeDuelAccept(state, interaction) {
-  const { challengerId, targetId, message, stake: duelStake } = state;
-  const pot = duelStake * 2;
+  const { challengerId, targetId, message, stake: baseStake } = state;
 
-  // -- Deduct stakes atomically --
-  const challengerDeducted = await tryDeductGold(challengerId, duelStake);
-  const targetDeducted = await tryDeductGold(targetId, duelStake);
+  // -- Immediate feedback, then roll the stake --
+  const rollingLine = `🎲 Rzucam kostką... <@${challengerId}> vs <@${targetId}>`;
+  try {
+    await message.edit({ content: rollingLine, components: [] });
+  } catch (e) {
+    error('Error editing duel rolling message:', e.message);
+  }
 
-  // If either failed, refund and cancel
-  if (!challengerDeducted || !targetDeducted) {
-    // Refund whoever was successfully deducted
-    if (challengerDeducted) await addGold(challengerId, duelStake);
-    if (targetDeducted) await addGold(targetId, duelStake);
+  // Fresh balances: both must still cover at least the base stake.
+  const challengerGold = await getUserGold(challengerId);
+  const targetGold = await getUserGold(targetId);
 
+  if (challengerGold < baseStake || targetGold < baseStake) {
     let cancelMsg;
-    if (!challengerDeducted && !targetDeducted) {
+    if (challengerGold < baseStake && targetGold < baseStake) {
       cancelMsg = `❌ Pojedynek odwołany — oboje nie macie już siana.`;
-    } else if (!challengerDeducted) {
+    } else if (challengerGold < baseStake) {
       cancelMsg = `❌ Pojedynek odwołany — <@${challengerId}> nie ma już siana.`;
     } else {
       cancelMsg = `❌ Pojedynek odwołany — <@${targetId}> nie ma już siana.`;
     }
+    try {
+      await message.edit({ content: cancelMsg, components: [] });
+    } catch (e) {
+      error('Error editing cancelled duel message:', e.message);
+    }
+    return null; // nothing was charged
+  }
+
+  const { roll, tier } = rollStakeTier();
+  const limit = Math.min(challengerGold, targetGold);
+  const wanted = tier.vabank ? limit : baseStake * tier.mult;
+  const stake = Math.min(wanted, limit);
+  const lowered = !tier.vabank && stake < wanted;
+  const pot = stake * 2;
+
+  // -- Deduct stakes (first, then second; refund the first if the second fails) --
+  let challengerDeducted = false;
+  let targetDeducted = false;
+  try {
+    challengerDeducted = await tryDeductGold(challengerId, stake);
+    if (challengerDeducted) targetDeducted = await tryDeductGold(targetId, stake);
+  } catch (err) {
+    error('Duel: deducting stakes failed:', err.message);
+    if (challengerDeducted) await addGold(challengerId, stake).catch(() => {});
+    if (targetDeducted) await addGold(targetId, stake).catch(() => {});
+    throw err;
+  }
+
+  if (!challengerDeducted || !targetDeducted) {
+    if (challengerDeducted) await addGold(challengerId, stake);
+
+    const cancelMsg = !challengerDeducted
+      ? `❌ Pojedynek odwołany — <@${challengerId}> nie ma już siana.`
+      : `❌ Pojedynek odwołany — <@${targetId}> nie ma już siana.`;
 
     try {
       await message.edit({ content: cancelMsg, components: [] });
@@ -331,8 +388,8 @@ export async function executeDuelAccept(state, interaction) {
   } catch (err) {
     // Crediting failed — refund both stakes so gold isn't lost
     error('Duel: crediting winner failed, refunding both stakes:', err.message);
-    await addGold(challengerId, duelStake).catch(() => {});
-    await addGold(targetId, duelStake).catch(() => {});
+    await addGold(challengerId, stake).catch(() => {});
+    await addGold(targetId, stake).catch(() => {});
     try {
       await message.edit({
         content: `❌ Pojedynek przerwany z powodu błędu technicznego. Stawki zwrócone.`,
@@ -342,7 +399,7 @@ export async function executeDuelAccept(state, interaction) {
       error('Error editing duel error message:', e.message);
     }
     error(
-      `Duel CRITICAL: stakes may need manual correction. Challenger=${challengerId}, Target=${targetId}, Stake=${duelStake}`
+      `Duel CRITICAL: stakes may need manual correction. Challenger=${challengerId}, Target=${targetId}, Stake=${stake}`
     );
     return null;
   }
@@ -373,49 +430,44 @@ export async function executeDuelAccept(state, interaction) {
     }
   }
 
+  // -- Dice result --
+  const rollLines = [rollingLine];
+  if (tier.vabank) {
+    rollLines.push(`💀 VA BANK! Gramy o wszystko: **${stake} Golda** każdy!`);
+  } else {
+    rollLines.push(`🎲 Wypadło **${roll}**/100 -> ${tier.label}: gramy o **${stake} Golda** każdy!`);
+    if (lowered) {
+      rollLines.push(`⚠️ Stawka obniżona do ${stake} Golda (limit portfela uboższego gracza)`);
+    }
+  }
+
   // -- Battle narration --
   const variantIndex = Math.floor(Math.random() * DUEL_VARIANTS.length);
   const variantLines = DUEL_VARIANTS[variantIndex](challengerName, targetName);
+  const resultLine = `🏆 <@${winnerId}> wygrywa **${pot}** Golda (netto +${stake})!`;
 
-  const lines = [
-    `⚔️ Pojedynek: <@${challengerId}> vs <@${targetId}>`,
-    '',
-    ...variantLines,
-    '',
-    `🏆 <@${winnerId}> wygrywa pojedynek i zgarnia **${pot} Golda**!`,
-  ].join('\n');
+  const head = rollLines.join('\n');
+  const fullText = head + '\n\n' + variantLines.join('\n') + '\n\n' + resultLine;
 
   try {
+    // Pause on the "rolling" line, then reveal the roll
+    await sleep(1500);
+    await message.edit({ content: head });
+    await sleep(1500);
+
     // Sequential reveal for live feel (~1.5s between phases)
-    const battleLines = lines.split('\n');
-    let currentText = battleLines.slice(0, 3).join('\n');
-
-    await message.edit({ content: currentText, components: [] });
-    await sleep(1500);
-
-    currentText += '\n' + battleLines[3];
-    await message.edit({ content: currentText });
-    await sleep(1500);
-
-    currentText += '\n' + battleLines[4];
-    await message.edit({ content: currentText });
-    await sleep(1500);
-
-    currentText += '\n' + battleLines[5];
-    await message.edit({ content: currentText });
-    await sleep(1500);
-
-    currentText += '\n' + battleLines[6];
-    await message.edit({ content: currentText });
-    await sleep(1000);
+    for (let i = 0; i < variantLines.length; i++) {
+      await message.edit({ content: head + '\n\n' + variantLines.slice(0, i + 1).join('\n') });
+      await sleep(i === variantLines.length - 1 ? 1000 : 1500);
+    }
 
     // Final result
-    await message.edit({ content: lines });
+    await message.edit({ content: fullText });
   } catch (e) {
     error('Error during duel narration edits:', e.message);
     // Fallback: post the full result in one shot if sequential edits fail
     try {
-      await message.edit({ content: lines, components: [] });
+      await message.edit({ content: fullText, components: [] });
     } catch (e2) {
       error('Could not edit duel final message:', e2.message);
     }

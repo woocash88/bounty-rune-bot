@@ -10,10 +10,12 @@ const BOUNTY_ROWS = [
 ];
 
 const ROSHAN_ROWS = [
+  ['roshan_entry', 'roshan_entry'],
   ['roshan_gold', 'roshan_gold'],
   ['roshan_chance_5', 'roshan_5_winchance'],
   ['roshan_chance_4', 'roshan_4_winchance'],
   ['roshan_chance_3', 'roshan_3_winchance'],
+  ['roshan_death_chance', 'roshan_death_chance'],
   ['roshan_lobby_timeout', 'roshan_lobby_timeout'],
 ];
 

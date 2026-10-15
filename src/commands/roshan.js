@@ -95,9 +95,9 @@ function buildRoshanAttachment() {
 }
 
 
-/** Minimum balance to fight: an equal share of the penalty for a party of this size. */
-function requiredGold(partySize) {
-  return Math.ceil(getSetting('roshan_gold') / Math.max(partySize, MIN_PLAYERS));
+/** Minimum balance to join/fight: the entry fee (same for every party size). */
+function requiredGold() {
+  return getSetting('roshan_entry');
 }
 
 function chanceFor(n) {
@@ -107,13 +107,6 @@ function chanceFor(n) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/** Split `total` into n integer parts that sum exactly to total. */
-function splitEvenly(total, n) {
-  const base = Math.floor(total / n);
-  const rem = total - base * n;
-  return Array.from({ length: n }, (_, i) => base + (i < rem ? 1 : 0));
 }
 
 function releaseLobby(lobbyId) {
@@ -133,6 +126,7 @@ function buildLobbyView(lobby) {
     : '*Nikt jeszcze nie dołączył...*';
 
   const gold = getSetting('roshan_gold');
+  const entry = getSetting('roshan_entry');
   const expiresUnix = Math.floor(lobby.expiresAt / 1000);
 
   const embed = new EmbedBuilder()
@@ -140,11 +134,19 @@ function buildLobbyView(lobby) {
     .setTitle('👹 Roshan się pojawił!')
     .setDescription(
       `Zbierz drużynę min. ${MIN_PLAYERS} osób aby stawić czoło Roshanowi!\n` +
-        `Nagroda dla drużyny: **${gold}g** (przegrana zabiera **${gold}g** drużynie).\n` +
+        `Wpisowe: **${entry}g** od gracza (płatne przy starcie walki).\n` +
+        `Nagroda przy wygranej: **${gold}g** do podziału. Im mniejsza drużyna, tym większa nagroda na osobę, ale tym trudniej o wygraną.\n` +
+        `Uwaga: po wygranej jeden losowy gracz może polec. Jego część nagrody dzielą ocaleni.\n` +
         `Roshan ucieknie <t:${expiresUnix}:R>`
     )
     .setThumbnail('attachment://roshan.png')
-    .addFields({ name: `Drużyna ${n}/${MAX_PLAYERS}`, value: `${filled}\n${list}` });
+    .addFields(
+      { name: `Drużyna ${n}/${MAX_PLAYERS}`, value: `${filled}\n${list}` },
+      {
+        name: 'Nagroda na osobę',
+        value: [3, 4, 5].map((k) => `${k} os.: ${Math.ceil(gold / k)}g`).join(' · '),
+      }
+    );
 
   if (n >= MIN_PLAYERS && n < MAX_PLAYERS) {
     embed.addFields({
@@ -269,15 +271,12 @@ export async function handleRoshanButton(interaction) {
       await interaction.reply({ content: 'Drużyna jest pełna.', ephemeral: true });
       return;
     }
-    // Must be able to cover an equal share of the penalty, otherwise the
-    // fight would be risk-free for them.
-    // Party size isn't final yet, so use the size it would have with this player
-    // (at least 3). The binding check happens right before the fight.
-    const required = requiredGold(lobby.players.length + 1);
+    // Must be able to pay the entry fee (charged only when the fight starts).
+    const required = requiredGold();
     const balance = await getUserGold(userId);
     if (balance < required) {
       await interaction.reply({
-        content: `Do walki z Roshanem potrzebujesz minimum **${required} Golda** (masz ${balance}). Im większa drużyna, tym niższy próg wejścia.`,
+        content: `Do walki z Roshanem potrzebujesz minimum **${required} Golda** (masz ${balance}).`,
         ephemeral: true,
       });
       return;
@@ -327,11 +326,19 @@ export async function handleRoshanButton(interaction) {
     lobby.fighting = true;
 
     // Balances may have dropped since joining (duel, /give, ...). Re-check right
-    // before the fight so nobody risks less than their share.
-    const required = requiredGold(lobby.players.length);
+    // before the fight so nobody gets in without being able to pay the entry fee.
+    const required = requiredGold();
     const broke = [];
-    for (const id of lobby.players) {
-      if ((await getUserGold(id)) < required) broke.push(id);
+    try {
+      for (const id of lobby.players) {
+        if ((await getUserGold(id)) < required) broke.push(id);
+      }
+    } catch (err) {
+      error('Roshan: balance check before fight failed:', err.message);
+      lobby.fighting = false;
+      lobby.ready.clear();
+      await interaction.reply({ content: 'Błąd techniczny, spróbuj ponownie.', ephemeral: true });
+      return;
     }
     if (broke.length > 0) {
       lobby.players = lobby.players.filter((p) => !broke.includes(p));
@@ -386,31 +393,71 @@ async function displayName(client, guild, userId) {
   }
 }
 
+/** Give the entry fee back to everyone already charged (fight cancelled). */
+async function refundEntry(ids, entry) {
+  for (const id of ids) {
+    try {
+      await addGold(id, entry);
+    } catch (err) {
+      error(`Roshan CRITICAL: refund of ${entry} to ${id} failed:`, err.message);
+    }
+  }
+}
+
 async function runFight(lobby) {
   const { message, players } = lobby;
   const n = players.length;
+  const entry = getSetting('roshan_entry');
+
+  // -- Entry fee: charged only now, never at join. Non-refundable once the fight happens. --
+  const charged = [];
+  try {
+    for (const id of players) {
+      if (!(await tryDeductGold(id, entry))) {
+        await refundEntry(charged, entry);
+        await message.edit({
+          content: `❌ Walka odwołana — <@${id}> nie ma już ${entry} Golda.`,
+          embeds: [],
+          components: [],
+          attachments: [],
+        });
+        return;
+      }
+      charged.push(id);
+    }
+  } catch (err) {
+    await refundEntry(charged, entry);
+    throw err;
+  }
+
   const win = Math.random() < chanceFor(n);
-  const shares = splitEvenly(getSetting('roshan_gold'), n);
+
+  // After a win there's a chance that one random player dies (only on wins).
+  let victim = null;
+  if (win && Math.random() < getSetting('roshan_death_chance') / 100) {
+    victim = players[Math.floor(Math.random() * n)];
+  }
+  const survivors = players.filter((id) => id !== victim);
+
+  // Gross payout, identical for every survivor (rounded up, so a pool that doesn't
+  // divide evenly can pay out slightly more than the pool). The entry fee isn't returned.
+  const share = Math.ceil(getSetting('roshan_gold') / survivors.length);
 
   // -- Settle gold first, so the narration never promises what didn't happen --
   const settlement = [];
   if (win) {
-    for (let i = 0; i < n; i++) {
-      await addGold(players[i], shares[i]);
-      await incrementStat(players[i], 'roshans_killed').catch((e) =>
+    for (const id of survivors) {
+      try {
+        await addGold(id, share);
+        settlement.push({ id, amount: share });
+      } catch (err) {
+        error(`Roshan CRITICAL: payout of ${share} to ${id} failed:`, err.message);
+        settlement.push({ id, amount: share, failed: true });
+        continue;
+      }
+      await incrementStat(id, 'roshans_killed').catch((e) =>
         error('Could not increment roshans_killed:', e.message)
       );
-      settlement.push({ id: players[i], amount: shares[i] });
-    }
-  } else {
-    for (let i = 0; i < n; i++) {
-      // Take the share, or whatever the player has if they can't cover it.
-      let take = Math.min(shares[i], await getUserGold(players[i]));
-      if (take > 0 && !(await tryDeductGold(players[i], take))) {
-        take = Math.min(shares[i], await getUserGold(players[i]));
-        if (take > 0 && !(await tryDeductGold(players[i], take))) take = 0;
-      }
-      settlement.push({ id: players[i], amount: take });
     }
   }
 
@@ -424,15 +471,25 @@ async function runFight(lobby) {
   const story = variant(namesText);
 
   const header = `O bogowie walka! ⚔️\n${players.map((id) => `<@${id}>`).join(' ')}\n`;
+  const net = share - entry;
   const resultLines = win
     ? [
         `🏆 **Roshan pokonany!**`,
-        ...settlement.map((s) => `💰 <@${s.id}> +**${s.amount}** Golda`),
-        `🛡️ Aegis zabezpieczony, ${getSetting('roshan_gold')} Golda do podziału!`,
+        ...settlement.map((s) =>
+          s.failed
+            ? `⚠️ <@${s.id}> — błąd wypłaty ${s.amount} Golda, zgłoś to adminowi`
+            : `💰 <@${s.id}> +**${s.amount}** Golda (netto **${net >= 0 ? '+' : ''}${net}**)`
+        ),
+        ...(victim
+          ? [`☠️ <@${victim}> poległ w walce i nie dostaje nagrody (-**${entry}** Golda)`]
+          : []),
+        victim
+          ? `🛡️ Aegis zabezpieczony, ${getSetting('roshan_gold')} Golda podzielone między ${survivors.length} ocalałych!`
+          : `🛡️ Aegis zabezpieczony, ${getSetting('roshan_gold')} Golda do podziału!`,
       ]
     : [
         `💀 **Roshan wygrywa!**`,
-        ...settlement.map((s) => `💸 <@${s.id}> -**${s.amount}** Golda`),
+        ...players.map((id) => `💸 <@${id}> -**${entry}** Golda (wpisowe)`),
       ];
 
   let text = header;

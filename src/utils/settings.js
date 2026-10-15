@@ -25,21 +25,29 @@ export const SETTINGS = {
     env: 'BOUNTY_DUEL_STAKE', def: 50, min: 1, max: 100000, int: true, scale: 1,
     label: 'Stawka w pojedynku (na gracza)', unit: 'Gold',
   },
+  roshan_entry: {
+    env: 'BOUNTY_ROSHAN_ENTRY', def: 50, min: 1, max: 100000, int: true, scale: 1,
+    label: 'Wpisowe do walki z Roshanem (na gracza)', unit: 'Gold',
+  },
   roshan_gold: {
-    env: 'BOUNTY_ROSHAN_GOLD', def: 350, min: 1, max: 100000, int: true, scale: 1,
-    label: 'Nagroda/kara za Roshana (dzielona na drużynę)', unit: 'Gold',
+    env: 'BOUNTY_ROSHAN_GOLD', def: 660, min: 1, max: 100000, int: true, scale: 1,
+    label: 'Pula nagrody za Roshana (dzielona na ocalałych)', unit: 'Gold',
   },
   roshan_chance_5: {
-    env: 'BOUNTY_ROSHAN_CHANCE_5', def: 40, min: 0, max: 100, int: false, scale: 1,
+    env: 'BOUNTY_ROSHAN_CHANCE_5', def: 38, min: 0, max: 100, int: false, scale: 1,
     label: 'Szansa na pokonanie Roshana — 5 graczy', unit: '%',
   },
   roshan_chance_4: {
-    env: 'BOUNTY_ROSHAN_CHANCE_4', def: 30, min: 0, max: 100, int: false, scale: 1,
+    env: 'BOUNTY_ROSHAN_CHANCE_4', def: 28, min: 0, max: 100, int: false, scale: 1,
     label: 'Szansa na pokonanie Roshana — 4 graczy', unit: '%',
   },
   roshan_chance_3: {
     env: 'BOUNTY_ROSHAN_CHANCE_3', def: 20, min: 0, max: 100, int: false, scale: 1,
     label: 'Szansa na pokonanie Roshana — 3 graczy', unit: '%',
+  },
+  roshan_death_chance: {
+    env: 'BOUNTY_ROSHAN_DEATH_CHANCE', def: 5, min: 0, max: 100, int: false, scale: 1,
+    label: 'Szansa na śmierć losowego gracza po wygranej walce', unit: '%',
   },
   roshan_lobby_timeout: {
     env: 'BOUNTY_ROSHAN_LOBBY_TIMEOUT_MIN', def: 10, min: 1, max: 120, int: true, scale: 1,
