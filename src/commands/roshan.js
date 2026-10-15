@@ -115,7 +115,7 @@ function releaseLobby(lobbyId) {
 
 function buildLobbyView(lobby) {
   const n = lobby.players.length;
-  const filled = '🟩'.repeat(n) + '⬛'.repeat(MAX_PLAYERS - n);
+  const filled = '🧍'.repeat(n) + '👤'.repeat(MAX_PLAYERS - n);
   const list = n
     ? lobby.players.map((id, i) => `${i + 1}. <@${id}>${lobby.ready.has(id) ? ' ✅' : ''}`).join('\n')
     : '*Nikt jeszcze nie dołączył...*';
@@ -135,13 +135,7 @@ function buildLobbyView(lobby) {
         `Roshan ucieknie <t:${expiresUnix}:R>`
     )
     .setThumbnail('attachment://roshan.png')
-    .addFields(
-      { name: `Drużyna ${n}/${MAX_PLAYERS}`, value: `${filled}\n${list}` },
-      {
-        name: 'Nagroda na osobę',
-        value: [3, 4, 5].map((k) => `${k} os.: ${Math.ceil(gold / k)}g`).join(' · '),
-      }
-    );
+    .addFields({ name: `Drużyna ${n}/${MAX_PLAYERS}`, value: `${filled}\n${list}` });
 
   if (n >= MIN_PLAYERS && n < MAX_PLAYERS) {
     embed.addFields({
