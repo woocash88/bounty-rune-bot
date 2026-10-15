@@ -115,7 +115,7 @@ function releaseLobby(lobbyId) {
 
 function buildLobbyView(lobby) {
   const n = lobby.players.length;
-  const filled = '🧍'.repeat(n) + '👤'.repeat(MAX_PLAYERS - n);
+  const filled = '🟩'.repeat(n) + '⬛'.repeat(MAX_PLAYERS - n);
   const list = n
     ? lobby.players.map((id, i) => `${i + 1}. <@${id}>${lobby.ready.has(id) ? ' ✅' : ''}`).join('\n')
     : '*Nikt jeszcze nie dołączył...*';
@@ -131,7 +131,7 @@ function buildLobbyView(lobby) {
       `⚔️ Zbierz drużynę między ${MIN_PLAYERS}-${MAX_PLAYERS} osób, aby stawić czoło Roshanowi!\n` +
         `📜 Wpisowe: ${entry}g\n` +
         `💰 Nagroda: ${gold}g na drużynę.\n\n` +
-        `⚠️ Uwaga! Gracz może zginąć w walce, a jego część nagrody trafia do pozostałych!\n` +
+        `⚠️ Uwaga! Gracz może zginąć w walce, wtedy nie otrzyma on żadnej nagrody!\n` +
         `Roshan ucieknie <t:${expiresUnix}:R>`
     )
     .setThumbnail('attachment://roshan.png')
