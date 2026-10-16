@@ -259,8 +259,8 @@ export default {
     try {
       message = await interaction.channel.send({
         content:
-          `⚔️ <@${challenger.id}> wyzywa <@${target.id}> na pojedynek o Gold!\n` +
-          `Stawka zostanie wylosowana kostką po akceptacji (od **${duelStake}** do **${duelStake * MAX_STAKE_MULT} Golda** każdy, z szansą na VA BANK)!`,
+          `⚔️ <@${challenger.id}> wyzywa <@${target.id}> na pojedynek!\n` +
+          `Walka będzie się toczyć o losową stawkę między **${duelStake}** a **${duelStake * MAX_STAKE_MULT}** Golda, z małą szansą na All-in!`,
         components: [row],
       });
     } catch (err) {
@@ -315,7 +315,7 @@ export async function executeDuelAccept(state, interaction) {
   const { challengerId, targetId, message, stake: baseStake } = state;
 
   // -- Immediate feedback, then roll the stake --
-  const rollingLine = `🎲 Rzucam kostką... <@${challengerId}> vs <@${targetId}>`;
+  const rollingLine = `⚔️ <@${challengerId}> vs <@${targetId}>`;
   try {
     await message.edit({ content: rollingLine, components: [] });
   } catch (e) {
@@ -343,7 +343,7 @@ export async function executeDuelAccept(state, interaction) {
     return null; // nothing was charged
   }
 
-  const { roll, tier } = rollStakeTier();
+  const { tier } = rollStakeTier();
   const limit = Math.min(challengerGold, targetGold);
   const wanted = tier.vabank ? limit : baseStake * tier.mult;
   const stake = Math.min(wanted, limit);
@@ -433,9 +433,9 @@ export async function executeDuelAccept(state, interaction) {
   // -- Dice result --
   const rollLines = [rollingLine];
   if (tier.vabank) {
-    rollLines.push(`💀 VA BANK! Gramy o wszystko: **${stake} Golda** każdy!`);
+    rollLines.push(`💀 All-in! Gramy o wszystko: **${stake} Golda** każdy!`);
   } else {
-    rollLines.push(`🎲 Wypadło **${roll}**/100 -> ${tier.label}: gramy o **${stake} Golda** każdy!`);
+    rollLines.push(`💰 Stawka: **${stake} Golda** każdy!`);
     if (lowered) {
       rollLines.push(`⚠️ Stawka obniżona do ${stake} Golda (limit portfela uboższego gracza)`);
     }

@@ -473,8 +473,8 @@ async function runFight(lobby) {
           ? [`☠️ <@${victim}> poległ w walce i nie dostaje nagrody (-**${entry}** Golda)`]
           : []),
         victim
-          ? `🛡️ Aegis zabezpieczony, ${getSetting('roshan_gold')} Golda podzielone między ${survivors.length} ocalałych!`
-          : `🛡️ Aegis zabezpieczony, ${getSetting('roshan_gold')} Golda do podziału!`,
+          ? `💰 ${getSetting('roshan_gold')} Golda podzielone między ${survivors.length} ocalałych!`
+          : `💰 ${getSetting('roshan_gold')} Golda do podziału!`,
       ]
     : [
         `💀 **Roshan wygrywa!**`,
