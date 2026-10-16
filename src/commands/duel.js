@@ -300,7 +300,7 @@ export default {
 
     // --- Ephemeral confirmation to challenger ---
     await interaction.editReply({
-      content: `⚔️ Wyzwałeś <@${target.id}> na pojedynek o Gold! Stawka zostanie wylosowana po akceptacji (od **${duelStake}** Golda). Czekamy na odpowiedź...`,
+      content: `⚔️ Wyzwałeś <@${target.id}> na pojedynek o złoto! Czy podejmie on rękawicę?`,
     });
   },
 };
